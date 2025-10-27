@@ -1,0 +1,12 @@
+database:
+  host: "localhost"
+  port: "5432"
+  user: "postgres"
+  dbname: "fitness_center"
+  sslmode: "disable"  
+
+server:
+  port: ":3000"
+  template_path: "./web/templates"
+  static_path: "./web/static"
+  upload_path: "./web/uploads"

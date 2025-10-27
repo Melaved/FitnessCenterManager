@@ -1,0 +1,35 @@
+# Конфиги с секретами
+config.secret.yaml
+.env
+.env.local
+
+# Загружаемые файлы (фото пользователей, тренировок)
+/web/uploads/
+*.jpg
+*.jpeg
+*.png
+*.gif
+
+# Логи
+*.log
+logs/
+
+# Временные файлы
+*.tmp
+*.temp
+/tmp/
+
+# Файлы редактора
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Go
+/bin/
+/pkg/
+/go.sum
+
+# Системные файлы
+.DS_Store
+Thumbs.db
