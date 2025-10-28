@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}} - Фитнес-центр</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">🏋️ Фитнес-центр</a>
+            <div class="collapse navbar-collapse">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" href="/">📊 Главная</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="/clients">👥 Клиенты</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/trainers">🏃 Тренеры</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/subscriptions">🎫 Абонементы</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/trainings">📅 Тренировки</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/about">ℹ️ О программе</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Заголовок и кнопка добавления -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>👥 {{.Title}}</h1>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addClientModal">
+                ➕ Добавить клиента
+            </button>
+        </div>
+
+        <!-- Таблица клиентов -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Список клиентов</h5>
+            </div>
+            <div class="card-body">
+                {{if .Clients}}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>ФИО</th>
+                                <th>Телефон</th>
+                                <th>Дата рождения</th>
+                                <th>Дата регистрации</th>
+                                <th>Мед. данные</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .Clients}}
+                            <tr>
+                                <td>{{.ID}}</td>
+                                <td>{{.FIO}}</td>
+                                <td>{{.Phone}}</td>
+                                <td>{{.BirthDate.Format "02.01.2006"}}</td>
+                                <td>{{.RegisterDate.Format "02.01.2006"}}</td>
+                                <td>
+                                    {{if .MedicalData.Valid}}
+                                        <span class="badge bg-info">Есть</span>
+                                    {{else}}
+                                        <span class="badge bg-secondary">Нет</span>
+                                    {{end}}
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" title="Редактировать">
+                                        ✏️
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" title="Удалить">
+                                        🗑️
+                                    </button>
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+                {{else}}
+                <div class="alert alert-info">
+                    <h5>Клиентов не найдено</h5>
+                    <p>Нажмите "Добавить клиента" чтобы создать первого клиента</p>
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Модальное окно добавления клиента -->
+    <div class="modal fade" id="addClientModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Добавить клиента</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="addClientForm">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">ФИО *</label>
+                            <input type="text" class="form-control" name="fio" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Телефон *</label>
+                            <input type="tel" class="form-control" name="phone" pattern="\+7[0-9]{10}" 
+                                placeholder="+79161234567" required>
+                            <div class="form-text">Формат: +7XXXXXXXXXX</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Дата рождения *</label>
+                            <input type="date" class="form-control" name="birth_date" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Медицинские данные</label>
+                            <textarea class="form-control" name="medical_data" rows="3" 
+                                    placeholder="Аллергии, хронические заболевания..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                        <button type="submit" class="btn btn-primary">Сохранить</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-dark text-light mt-5 py-3">
+        <div class="container text-center">
+            <small>Фитнес-центр &copy; 2025</small>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('addClientForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const submitBtn = this.querySelector('button[type="submit"]');
+            
+            // Показываем загрузку
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '⌛ Сохранение...';
+            
+            try {
+                const response = await fetch('/clients', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('✅ ' + result.message);
+                    this.reset();
+                    
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('addClientModal'));
+                    modal.hide();
+                    
+                    // Обновляем страницу через 1 секунду
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    alert('❌ ' + result.error);
+                }
+                
+            } catch (error) {
+                alert('❌ Ошибка: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Сохранить';
+            }
+        });
+    </script>
+</body>
+</html>
