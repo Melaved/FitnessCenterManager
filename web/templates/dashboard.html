@@ -10,13 +10,17 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="/">🏋️ Фитнес-центр</a>
-            <div class="collapse navbar-collapse">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
-                    <li class="nav-item"><a class="nav-link" href="/">📊 Главная</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="/">📊 Главная</a></li>
                     <li class="nav-item"><a class="nav-link" href="/clients">👥 Клиенты</a></li>
                     <li class="nav-item"><a class="nav-link" href="/trainers">🏃 Тренеры</a></li>
                     <li class="nav-item"><a class="nav-link" href="/subscriptions">🎫 Абонементы</a></li>
                     <li class="nav-item"><a class="nav-link" href="/trainings">📅 Тренировки</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/zones">🏟️ Зоны</a></li>
                     <li class="nav-item"><a class="nav-link" href="/about">ℹ️ О программе</a></li>
                 </ul>
             </div>
@@ -25,7 +29,24 @@
 
     <div class="container mt-4">
         <h1>🏋️ Панель управления фитнес-центром</h1>
-        <p class="lead">Система управления клиентами, тренерами и тренировками</p>
+        <p class="lead">Система управления клиентами, тренерами, зонами и тренировками</p>
+
+        <!-- Быстрые действия -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">🚀 Быстрые действия</h5>
+                        <div class="btn-group">
+                            <a href="/clients" class="btn btn-outline-primary">👥 Добавить клиента</a>
+                            <a href="/subscriptions" class="btn btn-outline-success">🎫 Оформить абонемент</a>
+                            <a href="/zones" class="btn btn-outline-info">🏟️ Управление зонами</a>
+                            <a href="/trainings" class="btn btn-outline-warning">📅 Запланировать тренировку</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Статистика -->
         <div class="row mt-4">
@@ -66,12 +87,87 @@
                 </div>
             </div>
         </div>
+
+        <!-- Дополнительная статистика по зонам -->
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">🏟️ Состояние зон</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span>Активные зоны:</span>
+                            <span class="badge bg-success" id="activeZonesCount">Загрузка...</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span>Зоны на ремонте:</span>
+                            <span class="badge bg-warning" id="repairZonesCount">Загрузка...</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Общая вместимость:</span>
+                            <span class="badge bg-primary" id="totalCapacity">Загрузка...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">📈 Активность</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">Последние действия в системе:</p>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">✅ Новый клиент зарегистрирован</li>
+                            <li class="list-group-item">🎫 Оформлен абонемент</li>
+                            <li class="list-group-item">🏟️ Добавлена новая зона</li>
+                            <li class="list-group-item">📅 Запланирована тренировка</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <footer class="bg-dark text-light mt-5 py-3">
         <div class="container text-center">
-            <small>Фитнес-центр &copy; 2025</small>
+            <small>Фитнес-центр &copy; 2025 | <a href="/zones" class="text-light">🏟️ Управление зонами</a></small>
         </div>
     </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Функция для загрузки статистики по зонам
+        async function loadZonesStats() {
+            try {
+                // В реальном приложении здесь был бы API запрос
+                // Для демонстрации используем mock данные
+                setTimeout(() => {
+                    document.getElementById('activeZonesCount').textContent = '3 зоны';
+                    document.getElementById('repairZonesCount').textContent = '1 зона';
+                    document.getElementById('totalCapacity').textContent = '45 человек';
+                }, 1000);
+            } catch (error) {
+                console.error('Ошибка загрузки статистики зон:', error);
+            }
+        }
+
+        // Загрузка статистики при открытии страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            loadZonesStats();
+            
+            // Инициализация tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
+
+        // Функция для быстрого перехода к разделам
+        function quickAction(section) {
+            window.location.href = '/' + section;
+        }
+    </script>
 </body>
 </html>

@@ -37,7 +37,6 @@ func main() {
     log.Printf("🚀 Сервер запущен на http://localhost%s", cfg.Server.Port)
     log.Printf("📊 Главная: http://localhost%s/", cfg.Server.Port)
     log.Printf("👥 Клиенты: http://localhost%s/clients", cfg.Server.Port)
-    log.Printf("🏃 Тренеры: http://localhost%s/trainers", cfg.Server.Port)
     
     log.Fatal(app.Listen(cfg.Server.Port))
 }
@@ -45,24 +44,29 @@ func main() {
 func setupRoutes(app *fiber.App) {
     // Главная страница
     app.Get("/", handlers.Dashboard)
-    
+    app.Get("/about", handlers.About)
     // Клиенты
     app.Get("/clients", handlers.GetClients)
     app.Post("/clients", handlers.CreateClient)
     app.Get("/clients/:id", handlers.GetClientByID)
-    app.Put("/clients/:id", handlers.UpdateClient)
+    //app.Put("/clients/:id", handlers.UpdateClient)
 
      // Абонементы
     app.Get("/subscriptions", handlers.GetSubscriptions)
     app.Get("/api/clients-for-select", handlers.GetClientsForSelect)
     app.Get("/api/trainers-for-select", handlers.GetTrainersForSelect)
-    // Основные разделы
+
+    // Зоны с загрузкой фото
+    app.Get("/zones", handlers.GetZones)
+    app.Post("/zones", handlers.CreateZone)
+    app.Post("/zones/:id/upload-photo", handlers.UploadZonePhoto)
+    app.Get("/uploads/:filename", handlers.GetZonePhoto)
+
+    // Остальные
     app.Get("/trainers", handlers.GetTrainers)
     app.Get("/subscriptions", handlers.GetSubscriptions)
     app.Get("/trainings", handlers.GetTrainings)
     app.Get("/zones", handlers.GetZones)
     app.Get("/equipment", handlers.GetEquipment)
     
-    // Сервисные страницы
-    app.Get("/about", handlers.About)
 }

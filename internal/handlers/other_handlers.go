@@ -11,13 +11,6 @@ func GetTrainings(c *fiber.Ctx) error {
     })
 }
 
-func GetZones(c *fiber.Ctx) error {
-    return c.Render("zones", fiber.Map{
-        "Title": "Зоны",
-        "Message": "Страница в разработке",
-    })
-}
-
 func GetEquipment(c *fiber.Ctx) error {
     return c.Render("equipment", fiber.Map{
         "Title": "Оборудование",

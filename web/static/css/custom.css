@@ -1,0 +1,44 @@
+/* Дополнительные стили для tooltips */
+.tooltip {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.tooltip-inner {
+    background-color: #333;
+    color: white;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.875rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.tooltip.bs-tooltip-top .tooltip-arrow::before {
+    border-top-color: #333;
+}
+
+.tooltip.bs-tooltip-bottom .tooltip-arrow::before {
+    border-bottom-color: #333;
+}
+
+.tooltip.bs-tooltip-start .tooltip-arrow::before {
+    border-left-color: #333;
+}
+
+.tooltip.bs-tooltip-end .tooltip-arrow::before {
+    border-right-color: #333;
+}
+
+/* Стили для кнопок с tooltips */
+.btn[data-bs-toggle="tooltip"] {
+    position: relative;
+}
+
+/* Анимация для фото */
+.photo-preview {
+    transition: all 0.3s ease;
+}
+
+.photo-preview:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}

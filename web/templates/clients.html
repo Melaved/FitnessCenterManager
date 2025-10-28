@@ -1,22 +1,28 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{.Title}} - Фитнес-центр</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
+
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="/">🏋️ Фитнес-центр</a>
-            <div class="collapse navbar-collapse">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item"><a class="nav-link" href="/">📊 Главная</a></li>
-                    <li class="nav-item"><a class="nav-link active" href="/clients">👥 Клиенты</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/clients">👥 Клиенты</a></li>
                     <li class="nav-item"><a class="nav-link" href="/trainers">🏃 Тренеры</a></li>
                     <li class="nav-item"><a class="nav-link" href="/subscriptions">🎫 Абонементы</a></li>
                     <li class="nav-item"><a class="nav-link" href="/trainings">📅 Тренировки</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/zones">🏟️ Зоны</a></li> 
                     <li class="nav-item"><a class="nav-link" href="/about">ℹ️ О программе</a></li>
                 </ul>
             </div>
@@ -62,16 +68,19 @@
                                 <td>{{.RegisterDate.Format "02.01.2006"}}</td>
                                 <td>
                                     {{if .MedicalData.Valid}}
-                                        <span class="badge bg-info">Есть</span>
+                                    <span class="badge bg-info">Есть</span>
                                     {{else}}
-                                        <span class="badge bg-secondary">Нет</span>
+                                    <span class="badge bg-secondary">Нет</span>
                                     {{end}}
                                 </td>
                                 <td>
-                                    <button class="btn btn-sm btn-outline-primary" title="Редактировать">
+                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip"
+                                        data-bs-placement="top" title="Редактировать клиента">
                                         ✏️
                                     </button>
-                                    <button class="btn btn-sm btn-outline-danger" title="Удалить">
+                                    <button class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip"
+                                        data-bs-placement="top" title="Удалить клиента"
+                                        onclick="return confirm('Удалить клиента?')">
                                         🗑️
                                     </button>
                                 </td>
@@ -89,7 +98,44 @@
             </div>
         </div>
     </div>
-    
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">🔍 Фильтры</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="filterMedicalData">
+                        <label class="form-check-label" for="filterMedicalData">
+                            📋 Только с медицинскими данными
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="filterRecentClients">
+                        <label class="form-check-label" for="filterRecentClients">
+                            🆕 Клиенты за последние 30 дней
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Кнопки действий с фильтрами -->
+            <div class="mt-3">
+                <button class="btn btn-outline-primary btn-sm" onclick="applyFilters()">
+                    ✅ Применить фильтры
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()">
+                    🗑️ Сбросить фильтры
+                </button>
+                <span class="badge bg-info ms-2" id="filterStatus">
+                    Все клиенты
+                </span>
+            </div>
+        </div>
+    </div>
     <!-- Модальное окно добавления клиента -->
     <div class="modal fade" id="addClientModal" tabindex="-1">
         <div class="modal-dialog">
@@ -106,7 +152,7 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Телефон *</label>
-                            <input type="tel" class="form-control" name="phone" pattern="\+7[0-9]{10}" 
+                            <input type="tel" class="form-control" name="phone" pattern="\+7[0-9]{10}"
                                 placeholder="+79161234567" required>
                             <div class="form-text">Формат: +7XXXXXXXXXX</div>
                         </div>
@@ -116,8 +162,8 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Медицинские данные</label>
-                            <textarea class="form-control" name="medical_data" rows="3" 
-                                    placeholder="Аллергии, хронические заболевания..."></textarea>
+                            <textarea class="form-control" name="medical_data" rows="3"
+                                placeholder="Аллергии, хронические заболевания..."></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -137,37 +183,37 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        document.getElementById('addClientForm').addEventListener('submit', async function(e) {
+        document.getElementById('addClientForm').addEventListener('submit', async function (e) {
             e.preventDefault();
-            
+
             const formData = new FormData(this);
             const submitBtn = this.querySelector('button[type="submit"]');
-            
+
             // Показываем загрузку
             submitBtn.disabled = true;
             submitBtn.innerHTML = '⌛ Сохранение...';
-            
+
             try {
                 const response = await fetch('/clients', {
                     method: 'POST',
                     body: formData
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     alert('✅ ' + result.message);
                     this.reset();
-                    
+
                     const modal = bootstrap.Modal.getInstance(document.getElementById('addClientModal'));
                     modal.hide();
-                    
+
                     // Обновляем страницу через 1 секунду
                     setTimeout(() => location.reload(), 1000);
                 } else {
                     alert('❌ ' + result.error);
                 }
-                
+
             } catch (error) {
                 alert('❌ Ошибка: ' + error.message);
             } finally {
@@ -175,6 +221,147 @@
                 submitBtn.innerHTML = 'Сохранить';
             }
         });
+        let currentFilters = {
+            medicalData: false,
+            recentClients: false
+        };
+
+        // Функция применения фильтров
+        function applyFilters() {
+            console.log('🎯 Применение фильтров...');
+
+            // Получаем состояние CheckBox'ов
+            currentFilters.medicalData = document.getElementById('filterMedicalData').checked;
+            currentFilters.recentClients = document.getElementById('filterRecentClients').checked;
+
+            console.log('📊 Активные фильтры:', currentFilters);
+
+            // Фильтруем таблицу
+            filterTable();
+
+            // Обновляем статус
+            updateFilterStatus();
+        }
+
+        // Функция фильтрации таблицы
+        function filterTable() {
+            const rows = document.querySelectorAll('table tbody tr');
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                let showRow = true;
+
+                // Фильтр по медицинским данным
+                if (currentFilters.medicalData) {
+                    const medicalBadge = row.querySelector('td:nth-child(6) .badge');
+                    if (medicalBadge && medicalBadge.textContent === 'Нет') {
+                        showRow = false;
+                    }
+                }
+
+                // Фильтр по новым клиентам (последние 30 дней)
+                if (currentFilters.recentClients) {
+                    const registerDateText = row.querySelector('td:nth-child(5)').textContent;
+                    const registerDate = parseDate(registerDateText);
+                    const thirtyDaysAgo = new Date();
+                    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+                    if (registerDate < thirtyDaysAgo) {
+                        showRow = false;
+                    }
+                }
+
+                // Показываем/скрываем строку
+                row.style.display = showRow ? '' : 'none';
+                if (showRow) visibleCount++;
+            });
+
+            console.log(`✅ Отображено ${visibleCount} из ${rows.length} клиентов`);
+
+            // Показываем сообщение если нет результатов
+            showNoResultsMessage(visibleCount === 0);
+        }
+
+        // Функция парсинга даты из формата "dd.mm.yyyy"
+        function parseDate(dateString) {
+            const parts = dateString.split('.');
+            return new Date(parts[2], parts[1] - 1, parts[0]);
+        }
+
+        // Функция сброса фильтров
+        function clearFilters() {
+            console.log('🔄 Сброс фильтров...');
+
+            // Сбрасываем CheckBox
+            document.getElementById('filterMedicalData').checked = false;
+            document.getElementById('filterRecentClients').checked = false;
+
+            // Сбрасываем фильтры
+            currentFilters.medicalData = false;
+            currentFilters.recentClients = false;
+
+            // Показываем все строки
+            const rows = document.querySelectorAll('table tbody tr');
+            rows.forEach(row => row.style.display = '');
+
+            // Обновляем статус
+            updateFilterStatus();
+
+            // Скрываем сообщение "нет результатов"
+            showNoResultsMessage(false);
+
+            console.log('✅ Фильтры сброшены');
+        }
+
+        // Функция обновления статуса фильтров
+        function updateFilterStatus() {
+            const statusElement = document.getElementById('filterStatus');
+            let statusText = 'Все клиенты';
+
+            if (currentFilters.medicalData && currentFilters.recentClients) {
+                statusText = 'С мед. данными + новые';
+            } else if (currentFilters.medicalData) {
+                statusText = 'Только с мед. данными';
+            } else if (currentFilters.recentClients) {
+                statusText = 'Только новые клиенты';
+            }
+
+            statusElement.textContent = statusText;
+        }
+
+        // Функция показа/скрытия сообщения "нет результатов"
+        function showNoResultsMessage(show) {
+            let noResultsMsg = document.getElementById('noResultsMessage');
+
+            if (show && !noResultsMsg) {
+                noResultsMsg = document.createElement('div');
+                noResultsMsg.id = 'noResultsMessage';
+                noResultsMsg.className = 'alert alert-warning mt-3';
+                noResultsMsg.innerHTML = `
+                    <h5>🤷‍♂️ Клиенты не найдены</h5>
+                    <p>Попробуйте изменить параметры фильтрации</p>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="clearFilters()">
+                        Сбросить фильтры
+                    </button>
+                `;
+
+                const tableCard = document.querySelector('.card');
+                tableCard.parentNode.insertBefore(noResultsMsg, tableCard.nextSibling);
+            } else if (!show && noResultsMsg) {
+                noResultsMsg.remove();
+            }
+        }
+
+        // Обработчики для автоматического применения фильтров при изменении CheckBox'ов
+        document.getElementById('filterMedicalData').addEventListener('change', applyFilters);
+        document.getElementById('filterRecentClients').addEventListener('change', applyFilters);
+
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('✅ CheckBox фильтры инициализированы');
+            updateFilterStatus();
+        });
     </script>
 </body>
+
 </html>

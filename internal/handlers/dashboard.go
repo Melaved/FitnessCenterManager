@@ -20,12 +20,12 @@ func Dashboard(c *fiber.Ctx) error {
         clientCount, trainerCount, subscriptionCount, trainingCount)
     
     return c.Render("dashboard", fiber.Map{
-    "Title": "Главная панель",
-    "Stats": fiber.Map{
-        "Clients":       clientCount,
-        "Trainers":      trainerCount,
-        "Subscriptions": subscriptionCount,
-        "Trainings":     trainingCount,
-    },
-})
+        "Title": "Главная панель",
+        "Stats": fiber.Map{
+            "Clients":       clientCount,
+            "Trainers":      trainerCount,
+            "Subscriptions": subscriptionCount,
+            "Trainings":     trainingCount,
+        },
+    })
 }

@@ -169,69 +169,69 @@ func GetClientByID(c *fiber.Ctx) error {
     })
 }
 
-// UpdateClient обновляет данные клиента
-func UpdateClient(c *fiber.Ctx) error {
-    id := c.Params("id")
+// // UpdateClient обновляет данные клиента
+// func UpdateClient(c *fiber.Ctx) error {
+//     id := c.Params("id")
     
-    // Парсим данные из формы
-    type ClientForm struct {
-        FIO         string `form:"fio"`
-        Phone       string `form:"phone"`
-        BirthDate   string `form:"birth_date"`
-        MedicalData string `form:"medical_data"`
-    }
+//     // Парсим данные из формы
+//     type ClientForm struct {
+//         FIO         string `form:"fio"`
+//         Phone       string `form:"phone"`
+//         BirthDate   string `form:"birth_date"`
+//         MedicalData string `form:"medical_data"`
+//     }
     
-    var form ClientForm
-    if err := c.BodyParser(&form); err != nil {
-        return c.Status(400).JSON(fiber.Map{
-            "success": false,
-            "error":   "Неверные данные формы",
-        })
-    }
+//     var form ClientForm
+//     if err := c.BodyParser(&form); err != nil {
+//         return c.Status(400).JSON(fiber.Map{
+//             "success": false,
+//             "error":   "Неверные данные формы",
+//         })
+//     }
     
-    // Валидация
-    if form.FIO == "" || form.Phone == "" || form.BirthDate == "" {
-        return c.Status(400).JSON(fiber.Map{
-            "success": false,
-            "error":   "Все обязательные поля должны быть заполнены",
-        })
-    }
+//     // Валидация
+//     if form.FIO == "" || form.Phone == "" || form.BirthDate == "" {
+//         return c.Status(400).JSON(fiber.Map{
+//             "success": false,
+//             "error":   "Все обязательные поля должны быть заполнены",
+//         })
+//     }
     
-    // Парсим дату
-    birthDate, err := time.Parse("2006-01-02", form.BirthDate)
-    if err != nil {
-        return c.Status(400).JSON(fiber.Map{
-            "success": false,
-            "error":   "Неверный формат даты",
-        })
-    }
+//     // Парсим дату
+//     birthDate, err := time.Parse("2006-01-02", form.BirthDate)
+//     if err != nil {
+//         return c.Status(400).JSON(fiber.Map{
+//             "success": false,
+//             "error":   "Неверный формат даты",
+//         })
+//     }
     
-    db := database.GetDB()
+//     db := database.GetDB()
     
-    // Обновляем данные
-    result, err := db.Exec(`
-        UPDATE "Клиент" 
-        SET "ФИО" = $1, "Номер_телефона" = $2, "Дата_рождения" = $3, "Медицинские_данные" = $4
-        WHERE "id_клиента" = $5
-    `, form.FIO, form.Phone, birthDate, form.MedicalData, id)
+//     // Обновляем данные
+//     result, err := db.Exec(`
+//         UPDATE "Клиент" 
+//         SET "ФИО" = $1, "Номер_телефона" = $2, "Дата_рождения" = $3, "Медицинские_данные" = $4
+//         WHERE "id_клиента" = $5
+//     `, form.FIO, form.Phone, birthDate, form.MedicalData, id)
     
-    if err != nil {
-        return c.Status(500).JSON(fiber.Map{
-            "success": false,
-            "error":   "Ошибка обновления: " + err.Error(),
-        })
-    }
+//     if err != nil {
+//         return c.Status(500).JSON(fiber.Map{
+//             "success": false,
+//             "error":   "Ошибка обновления: " + err.Error(),
+//         })
+//     }
     
-    rowsAffected, _ := result.RowsAffected()
-    if rowsAffected == 0 {
-        return c.Status(404).JSON(fiber.Map{
-            "success": false,
-            "error":   "Клиент не найден",
-        })
-    }
+//     rowsAffected, _ := result.RowsAffected()
+//     if rowsAffected == 0 {
+//         return c.Status(404).JSON(fiber.Map{
+//             "success": false,
+//             "error":   "Клиент не найден",
+//         })
+//     }
     
-    return c.JSON(fiber.Map{
-        "success": true,
-        "message": "Клиент успешно обновлен",
-    })
-}
+//     return c.JSON(fiber.Map{
+//         "success": true,
+//         "message": "Клиент успешно обновлен",
+//     })
+// }
