@@ -4,6 +4,7 @@ import (
 	"fitness-center-manager/internal/database"
 	"fitness-center-manager/internal/models"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -51,10 +52,10 @@ func GetClients(c *fiber.Ctx) error {
     })
 }
 
+// CreateClient создает нового клиента
 func CreateClient(c *fiber.Ctx) error {
     log.Println("🎯 Создание нового клиента...")
     
-    // Парсим данные из формы
     type ClientForm struct {
         FIO         string `form:"fio"`
         Phone       string `form:"phone"`
@@ -99,8 +100,12 @@ func CreateClient(c *fiber.Ctx) error {
     
     db := database.GetDB()
     
-    // Вставляем данные в БД
+    // ОТЛАДОЧНАЯ ИНФОРМАЦИЯ
+    log.Printf("📝 Данные для сохранения: FIO=%s, Phone=%s, MedicalData='%s'", 
+        form.FIO, form.Phone, form.MedicalData)
+    
     var clientID int
+    // Если MedicalData пустая строка, она сохранится как NULL
     err = db.QueryRow(`
         INSERT INTO "Клиент" ("ФИО", "Номер_телефона", "Дата_рождения", "Медицинские_данные")
         VALUES ($1, $2, $3, $4)
@@ -115,7 +120,7 @@ func CreateClient(c *fiber.Ctx) error {
         })
     }
     
-    log.Printf("✅ Клиент создан! ID: %d", clientID)
+    log.Printf("✅ Клиент создан! ID: %d, Мед.данные: '%s'", clientID, form.MedicalData)
     
     return c.JSON(fiber.Map{
         "success": true,
@@ -169,69 +174,116 @@ func GetClientByID(c *fiber.Ctx) error {
     })
 }
 
-// // UpdateClient обновляет данные клиента
-// func UpdateClient(c *fiber.Ctx) error {
-//     id := c.Params("id")
+// UpdateClient обновляет данные клиента
+func UpdateClient(c *fiber.Ctx) error {
+    id := c.Params("id")
     
-//     // Парсим данные из формы
-//     type ClientForm struct {
-//         FIO         string `form:"fio"`
-//         Phone       string `form:"phone"`
-//         BirthDate   string `form:"birth_date"`
-//         MedicalData string `form:"medical_data"`
-//     }
+    type ClientForm struct {
+        FIO         string `form:"fio"`
+        Phone       string `form:"phone"`
+        BirthDate   string `form:"birth_date"`
+        MedicalData string `form:"medical_data"`
+    }
     
-//     var form ClientForm
-//     if err := c.BodyParser(&form); err != nil {
-//         return c.Status(400).JSON(fiber.Map{
-//             "success": false,
-//             "error":   "Неверные данные формы",
-//         })
-//     }
+    var form ClientForm
+    if err := c.BodyParser(&form); err != nil {
+        return c.Status(400).JSON(fiber.Map{
+            "success": false,
+            "error":   "Неверные данные формы",
+        })
+    }
     
-//     // Валидация
-//     if form.FIO == "" || form.Phone == "" || form.BirthDate == "" {
-//         return c.Status(400).JSON(fiber.Map{
-//             "success": false,
-//             "error":   "Все обязательные поля должны быть заполнены",
-//         })
-//     }
+    if form.FIO == "" || form.Phone == "" || form.BirthDate == "" {
+        return c.Status(400).JSON(fiber.Map{
+            "success": false,
+            "error":   "Все обязательные поля должны быть заполнены",
+        })
+    }
     
-//     // Парсим дату
-//     birthDate, err := time.Parse("2006-01-02", form.BirthDate)
-//     if err != nil {
-//         return c.Status(400).JSON(fiber.Map{
-//             "success": false,
-//             "error":   "Неверный формат даты",
-//         })
-//     }
+    birthDate, err := time.Parse("2006-01-02", form.BirthDate)
+    if err != nil {
+        return c.Status(400).JSON(fiber.Map{
+            "success": false,
+            "error":   "Неверный формат даты",
+        })
+    }
     
-//     db := database.GetDB()
+    db := database.GetDB()
     
-//     // Обновляем данные
-//     result, err := db.Exec(`
-//         UPDATE "Клиент" 
-//         SET "ФИО" = $1, "Номер_телефона" = $2, "Дата_рождения" = $3, "Медицинские_данные" = $4
-//         WHERE "id_клиента" = $5
-//     `, form.FIO, form.Phone, birthDate, form.MedicalData, id)
+    result, err := db.Exec(`
+        UPDATE "Клиент" 
+        SET "ФИО" = $1, "Номер_телефона" = $2, "Дата_рождения" = $3, "Медицинские_данные" = $4
+        WHERE "id_клиента" = $5
+    `, form.FIO, form.Phone, birthDate, form.MedicalData, id)
     
-//     if err != nil {
-//         return c.Status(500).JSON(fiber.Map{
-//             "success": false,
-//             "error":   "Ошибка обновления: " + err.Error(),
-//         })
-//     }
+    if err != nil {
+        return c.Status(500).JSON(fiber.Map{
+            "success": false,
+            "error":   "Ошибка обновления: " + err.Error(),
+        })
+    }
     
-//     rowsAffected, _ := result.RowsAffected()
-//     if rowsAffected == 0 {
-//         return c.Status(404).JSON(fiber.Map{
-//             "success": false,
-//             "error":   "Клиент не найден",
-//         })
-//     }
+    rowsAffected, _ := result.RowsAffected()
+    if rowsAffected == 0 {
+        return c.Status(404).JSON(fiber.Map{
+            "success": false,
+            "error":   "Клиент не найден",
+        })
+    }
     
-//     return c.JSON(fiber.Map{
-//         "success": true,
-//         "message": "Клиент успешно обновлен",
-//     })
-// }
+    return c.JSON(fiber.Map{
+        "success": true,
+        "message": "Клиент успешно обновлен",
+    })
+}
+
+func DeleteClient(c *fiber.Ctx) error{
+    id := c.Params(("id"))
+
+    clientID, err := strconv.Atoi(id)
+    if err != nil{
+        return c.Status(400).JSON(fiber.Map{
+            "success": false,
+            "error": "Неверный Id клиента",
+        })
+    }
+
+    db := database.GetDB()
+    var subscriptionCount int
+
+    //Проверка абонементов
+    err = db.QueryRow(`SELECT COUNT(*) FROM Абонемент WHERE id_клиента = $1`, clientID).Scan(&subscriptionCount)
+    if err != nil {
+        return c.Status(500).JSON(fiber.Map{
+            "success": false,
+            "error": "Ошибка проверки данных клиента",
+        })
+    }
+    if subscriptionCount > 0{
+        return c.Status(400).JSON(fiber.Map{
+            "success":false,
+            "error": "Невозможно удалить клиента у него есть активные абонементы: Сначала удалите абонементы",
+        })
+    }
+
+    result, err := db.Exec(`DELETE FROM Клиент WHERE id_клиента = $1`,clientID)
+    if err != nil{
+        return c.Status(500).JSON(fiber.Map{
+            "success": false,
+            "error": "Ошибка удаления клиента" + err.Error(),
+        })
+    }
+
+    rowsAffected, _ := result.RowsAffected()
+    if rowsAffected == 0{
+        return c.Status(404).JSON(fiber.Map{
+            "success": false,
+            "error": "Клиент не найден",
+        })
+    }
+
+    return c.JSON(fiber.Map{
+        "success": true,
+        "message": "Клиент успешно удален",
+    })
+}

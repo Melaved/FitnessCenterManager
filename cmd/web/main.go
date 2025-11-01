@@ -24,7 +24,6 @@ func main() {
     // Создание приложения Fiber
     app := fiber.New(fiber.Config{
         Views: engine,
-        // ViewsLayout: "base",
     })
     
     // Middleware
@@ -49,14 +48,15 @@ func setupRoutes(app *fiber.App) {
     app.Get("/clients", handlers.GetClients)
     app.Post("/clients", handlers.CreateClient)
     app.Get("/clients/:id", handlers.GetClientByID)
-    //app.Put("/clients/:id", handlers.UpdateClient)
+    app.Put("/clients/:id",handlers.UpdateClient)
+    app.Delete("/clients/:id", handlers.DeleteClient)
 
      // Абонементы
     app.Get("/subscriptions", handlers.GetSubscriptions)
     app.Get("/api/clients-for-select", handlers.GetClientsForSelect)
     app.Get("/api/trainers-for-select", handlers.GetTrainersForSelect)
 
-    // Зоны с загрузкой фото
+    // Зоны с загрузкй фото
     app.Get("/zones", handlers.GetZones)
     app.Post("/zones", handlers.CreateZone)
     app.Post("/zones/:id/upload-photo", handlers.UploadZonePhoto)

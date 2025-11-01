@@ -27,7 +27,7 @@ type Config struct {
 func LoadConfig() *Config {
     config := &Config{}
     
-    // 1. Загружаем основной конфиг (без пароля)
+    // 1. основной конфиг (без пароля)
     data, err := os.ReadFile("config.yaml")
     if err != nil {
         log.Fatalf("Ошибка чтения config.yaml: %v", err)
@@ -38,7 +38,7 @@ func LoadConfig() *Config {
         log.Fatalf("Ошибка парсинга config.yaml: %v", err)
     }
     
-    // 2. Загружаем секретный конфиг (с паролем)
+    // 2. секретный конфиг (с паролем)
     secretData, err := os.ReadFile("config.secret.yaml")
     if err != nil {
         log.Fatalf("Ошибка чтения config.secret.yaml: %v", err)
