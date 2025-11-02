@@ -1,426 +1,445 @@
 <!DOCTYPE html>
 <html lang="ru">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Title}} - Фитнес-центр</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        .photo-preview {
-            max-width: 200px;
-            max-height: 150px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-
-        .photo-preview:hover {
-            transform: scale(1.05);
-        }
-
-        .zone-card {
-            transition: all 0.3s ease;
-        }
-
-        .zone-card:hover {
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-            transform: translateY(-2px);
-        }
-
-        .no-photo-placeholder {
-            height: 150px;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border: 2px dashed #dee2e6;
-            border-radius: 8px;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{{.Title}} - Фитнес-центр</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <style>
+    .photo-preview { max-width: 200px; max-height: 150px; border-radius: 8px; cursor: pointer; transition: transform .2s; }
+    .photo-preview:hover { transform: scale(1.05); }
+    .zone-card { transition: all .3s ease; }
+    .zone-card:hover { box-shadow: 0 8px 25px rgba(0,0,0,.15); transform: translateY(-2px); }
+    .no-photo-placeholder { height: 150px; background: linear-gradient(135deg,#f8f9fa 0%,#e9ecef 100%); border: 2px dashed #dee2e6; border-radius: 8px; }
+  </style>
 </head>
-
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="/">🏋️ Фитнес-центр</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item"><a class="nav-link" href="/">📊 Главная</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/clients">👥 Клиенты</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/trainers">🏃 Тренеры</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/subscriptions">🎫 Абонементы</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/trainings">📅 Тренировки</a></li>
-                    <li class="nav-item"><a class="nav-link active" href="/zones">🏟️ Зоны</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/about">ℹ️ О программе</a></li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+      <a class="navbar-brand" href="/">🏋️ Фитнес-центр</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item"><a class="nav-link" href="/">📊 Главная</a></li>
+          <li class="nav-item"><a class="nav-link" href="/clients">👥 Клиенты</a></li>
+          <li class="nav-item"><a class="nav-link" href="/trainers">🏃 Тренеры</a></li>
+          <li class="nav-item"><a class="nav-link" href="/subscriptions">🎫 Абонементы</a></li>
+          <li class="nav-item"><a class="nav-link" href="/trainings">📅 Тренировки</a></li>
+          <li class="nav-item"><a class="nav-link active" href="/zones">🏟️ Зоны</a></li>
+          <li class="nav-item"><a class="nav-link" href="/about">ℹ️ О программе</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
 
-    <div class="container mt-4">
-        <!-- Заголовок и кнопка добавления -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>🏟️ {{.Title}}</h1>
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addZoneModal"
-                data-bs-toggle="tooltip" data-bs-placement="top" title="Добавить новую зону">
-                ➕ Добавить зону
-            </button>
-        </div>
-
-        <!-- Сетка зон -->
-        <div class="row">
-            {{range .Zones}}
-            <div class="col-md-6 col-lg-4 mb-4">
-                <div class="card zone-card h-100">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">{{.Name}}</h5>
-                    </div>
-                    <div class="card-body">
-                        <!-- Фото зоны -->
-                        <div class="text-center mb-3">
-                            {{if .PhotoPath.Valid}}
-                            <img src="/uploads/{{.PhotoPath.String}}" class="photo-preview img-thumbnail"
-                                alt="Фото {{.Name}}" data-bs-toggle="tooltip" data-bs-placement="top"
-                                title="Нажмите для просмотра">
-                            {{else}}
-                            <div class="no-photo-placeholder d-flex align-items-center justify-content-center"
-                                data-bs-toggle="tooltip" data-bs-placement="top" title="Фото не загружено">
-                                <span class="text-muted">📷 Нет фото</span>
-                            </div>
-                            {{end}}
-                        </div>
-
-                        <!-- Информация о зоне -->
-                        <p class="card-text">{{.Description}}</p>
-                        <ul class="list-group list-group-flush">
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span>Вместимость:</span>
-                                <span class="badge bg-primary">{{.Capacity}} чел.</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span>Статус:</span>
-                                <span class="badge 
-        {{if eq .Status " Доступна"}}bg-success {{else if eq .Status "На ремонте" }}bg-warning {{else if eq
-                                    .Status "Закрыта" }}bg-secondary {{else}}bg-danger{{end}}">
-                                    {{.Status}}
-                                </span>
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="card-footer">
-                        <div class="btn-group w-100">
-                            <!-- Кнопка загрузки фото -->
-                            <button class="btn btn-outline-success btn-sm" data-bs-toggle="modal"
-                                data-bs-target="#uploadPhotoModal" data-zone-id="{{.ID}}" data-zone-name="{{.Name}}"
-                                data-bs-toggle="tooltip" data-bs-placement="top" title="Загрузить фото для этой зоны">
-                                📷 Фото
-                            </button>
-
-                            <!-- Кнопка редактирования -->
-                            <button class="btn btn-outline-primary btn-sm" data-bs-toggle="tooltip"
-                                data-bs-placement="top" title="Редактировать информацию о зоне">
-                                ✏️ Изменить
-                            </button>
-
-                            <!-- Кнопка удаления -->
-                            <button class="btn btn-outline-danger btn-sm delete-zone-btn" data-zone-id="{{.ID}}"
-                                data-zone-name="{{.Name}}" data-bs-toggle="tooltip" data-bs-placement="top"
-                                title="Удалить зону">
-                                🗑️ Удалить
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {{else}}
-            <div class="col-12">
-                <div class="alert alert-info text-center">
-                    <h5>🏟️ Зон не найдено</h5>
-                    <p>Нажмите "Добавить зону" чтобы создать первую зону</p>
-                </div>
-            </div>
-            {{end}}
-        </div>
+  <div class="container mt-4">
+    <!-- Заголовок и кнопка добавления -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h1 class="mb-0">🏟️ {{.Title}}</h1>
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addZoneModal" title="Добавить новую зону">
+        ➕ Добавить зону
+      </button>
     </div>
 
-    <!-- Модальное окно добавления зоны -->
-    <div class="modal fade" id="addZoneModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Добавить зону</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <!-- Сетка зон -->
+    <div class="row">
+      {{range .Zones}}
+      <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card zone-card h-100">
+          <div class="card-header">
+            <h5 class="card-title mb-0">{{.Name}}</h5>
+          </div>
+          <div class="card-body">
+            <!-- Фото зоны -->
+            <div class="text-center mb-3">
+              {{if .HasPhoto}}
+                <img src="/zones/{{.ID}}/photo" class="photo-preview img-thumbnail" alt="Фото {{.Name}}" loading="lazy" title="Нажмите для просмотра">
+              {{else}}
+                <div class="no-photo-placeholder d-flex align-items-center justify-content-center" title="Фото не загружено">
+                  <span class="text-muted">📷 Нет фото</span>
                 </div>
-                <form id="addZoneForm">
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">Название зоны *</label>
-                            <input type="text" class="form-control" name="name" required
-                                placeholder="Например: Кардио-зона">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Описание</label>
-                            <textarea class="form-control" name="description" rows="3"
-                                placeholder="Описание зоны и оборудования..."></textarea>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Вместимость *</label>
-                                    <input type="number" class="form-control" name="capacity" min="1" max="100"
-                                        value="10" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Статус</label>
-                                    <select class="form-select" name="status" required>
-                                        <option value="Доступна" selected>Доступна</option>
-                                        <option value="На ремонте">На ремонте</option>
-                                        <option value="Закрыта">Закрыта</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                        <button type="submit" class="btn btn-primary">Сохранить</button>
-                    </div>
-                </form>
+              {{end}}
             </div>
-        </div>
-    </div>
 
-    <!-- Модальное окно загрузки фото -->
-    <div class="modal fade" id="uploadPhotoModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Загрузить фото зоны</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form id="uploadPhotoForm" enctype="multipart/form-data">
-                    <div class="modal-body">
-                        <input type="hidden" id="uploadZoneId" name="zone_id">
+            <!-- Информация о зоне -->
+            <p class="card-text mb-2">{{.Description}}</p>
+            <ul class="list-group list-group-flush">
+              <li class="list-group-item d-flex justify-content-between">
+                <span>Вместимость:</span>
+                <span class="badge bg-primary">{{.Capacity}} чел.</span>
+              </li>
+              <li class="list-group-item d-flex justify-content-between">
+                <span>Статус:</span>
+                <span class="badge
+                  {{- if eq .Status "Доступна" -}} bg-success
+                  {{- else if eq .Status "На ремонте" -}} bg-warning
+                  {{- else if eq .Status "Закрыта" -}} bg-secondary
+                  {{- else -}} bg-danger {{- end -}}">
+                  {{.Status}}
+                </span>
+              </li>
+            </ul>
+          </div>
+          <div class="card-footer">
+            <div class="btn-group w-100">
+              <!-- Загрузить фото -->
+              <button class="btn btn-outline-success btn-sm"
+                      data-bs-toggle="modal"
+                      data-bs-target="#uploadPhotoModal"
+                      data-zone-id="{{.ID}}"
+                      data-zone-name="{{.Name}}"
+                      title="Загрузить фото для этой зоны">
+                📷 Фото
+              </button>
 
-                        <div class="mb-3">
-                            <label class="form-label">Выберите фото</label>
-                            <input type="file" class="form-control" name="photo" accept="image/*" required>
-                            <div class="form-text">
-                                Разрешены: JPEG, PNG, GIF, WebP. Максимальный размер: 5MB
-                            </div>
-                        </div>
+              <!-- Редактировать -->
+              <button class="btn btn-outline-primary btn-sm edit-zone-btn"
+                      data-zone-id="{{.ID}}"
+                      title="Редактировать информацию о зоне">
+                ✏️ Изменить
+              </button>
 
-                        <div class="mb-3">
-                            <label>Предпросмотр:</label>
-                            <div id="photoPreview" class="text-center mt-2">
-                                <img id="previewImage" class="img-thumbnail d-none" style="max-height: 200px;">
-                                <div id="noPreview" class="text-muted">
-                                    📷 Изображение появится здесь после выбора файла
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                        <button type="submit" class="btn btn-success">📤 Загрузить фото</button>
-                    </div>
-                </form>
+              <!-- Удалить -->
+              <button class="btn btn-outline-danger btn-sm delete-zone-btn"
+                      data-zone-id="{{.ID}}"
+                      data-zone-name="{{.Name}}"
+                      title="Удалить зону">
+                🗑️ Удалить
+              </button>
             </div>
+          </div>
         </div>
+      </div>
+      {{else}}
+      <div class="col-12">
+        <div class="alert alert-info text-center">
+          <h5 class="mb-1">🏟️ Зон не найдено</h5>
+          <p class="mb-0">Нажмите «Добавить зону», чтобы создать первую</p>
+        </div>
+      </div>
+      {{end}}
     </div>
+  </div>
 
-    <footer class="bg-dark text-light mt-5 py-3">
-        <div class="container text-center">
-            <small>Фитнес-центр &copy; 2025</small>
+  <!-- Модалка: добавить зону -->
+  <div class="modal fade" id="addZoneModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Добавить зону</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="addZoneForm">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Название зоны *</label>
+            <input type="text" class="form-control" name="name" required placeholder="Например: Кардио-зона"/>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Описание</label>
+            <textarea class="form-control" name="description" rows="3" placeholder="Описание зоны и оборудования..."></textarea>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label class="form-label">Вместимость *</label>
+                <input type="number" class="form-control" name="capacity" min="1" max="100" value="10" required/>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label class="form-label">Статус *</label>
+                <select class="form-select" name="status" required>
+                  <option value="Доступна" selected>Доступна</option>
+                  <option value="На ремонте">На ремонте</option>
+                  <option value="Закрыта">Закрыта</option>
+                </select>
+              </div>
+            </div>
+          </div>
         </div>
-    </footer>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+          <button type="submit" class="btn btn-primary">Сохранить</button>
+        </div>
+      </form>
+    </div></div>
+  </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Инициализация tooltips
-        document.addEventListener('DOMContentLoaded', function () {
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl)
-            });
+  <!-- Модалка: загрузка фото -->
+  <div class="modal fade" id="uploadPhotoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Загрузить фото зоны</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="uploadPhotoForm" enctype="multipart/form-data">
+        <div class="modal-body">
+          <input type="hidden" id="uploadZoneId" name="zone_id"/>
+          <div class="mb-3">
+            <label class="form-label">Выберите фото</label>
+            <input type="file" class="form-control" name="photo" accept="image/jpeg,image/png,image/webp" required/>
+            <div class="form-text">Разрешены: JPEG, PNG, WebP. Максимальный размер: 5 MB</div>
+          </div>
+          <div class="mb-3">
+            <label>Предпросмотр:</label>
+            <div id="photoPreview" class="text-center mt-2">
+              <img id="previewImage" class="img-thumbnail d-none" style="max-height: 200px;">
+              <div id="noPreview" class="text-muted">📷 Изображение появится здесь после выбора файла</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" id="clearPhotoBtn" title="Удалить фото зоны">🧹 Очистить фото</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+          <button type="submit" class="btn btn-success">📤 Загрузить фото</button>
+        </div>
+      </form>
+    </div></div>
+  </div>
 
-            // Обработчик для кнопок удаления зон
-            document.querySelectorAll('.delete-zone-btn').forEach(button => {
-                button.addEventListener('click', function () {
-                    const zoneId = this.getAttribute('data-zone-id');
-                    const zoneName = this.getAttribute('data-zone-name');
+  <!-- Модалка: редактирование -->
+  <div class="modal fade" id="editZoneModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Редактировать зону</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="editZoneForm">
+        <div class="modal-body">
+          <input type="hidden" id="editZoneId" name="id"/>
+          <div class="mb-3">
+            <label class="form-label">Название зоны *</label>
+            <input type="text" class="form-control" name="name" id="editName" required/>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Описание</label>
+            <textarea class="form-control" name="description" id="editDescription" rows="3"></textarea>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label class="form-label">Вместимость *</label>
+                <input type="number" class="form-control" name="capacity" id="editCapacity" min="1" max="100" required/>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label class="form-label">Статус *</label>
+                <select class="form-select" name="status" id="editStatus" required>
+                  <option value="Доступна">Доступна</option>
+                  <option value="На ремонте">На ремонте</option>
+                  <option value="Закрыта">Закрыта</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+          <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+        </div>
+      </form>
+    </div></div>
+  </div>
 
-                    if (confirm(`Вы уверены, что хотите удалить зону "${zoneName}"?`)) {
-                        deleteZone(zoneId, zoneName);
-                    }
-                });
-            });
-        });
+  <footer class="bg-dark text-light mt-5 py-3">
+    <div class="container text-center">
+      <small>Фитнес-центр &copy; 2025</small>
+    </div>
+  </footer>
 
-        // Обработка формы добавления зоны
-        document.getElementById('addZoneForm').addEventListener('submit', async function (e) {
-            e.preventDefault();
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Утилита: безопасно разобрать JSON (а если прилетит HTML — показать текст)
+    async function parseJsonOrThrow(response) {
+      const ct = (response.headers.get('content-type') || '').toLowerCase();
+      if (ct.includes('application/json')) return response.json();
+      const text = await response.text();
+      throw new Error(text.slice(0, 300) || 'Сервер вернул не-JSON');
+    }
 
-            const formData = new FormData(this);
-            const submitBtn = this.querySelector('button[type="submit"]');
+    document.addEventListener('DOMContentLoaded', () => {
+      // tooltips
+      [...document.querySelectorAll('[title]')].forEach(el => new bootstrap.Tooltip(el));
 
-            // Показываем загрузку
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '⌛ Сохранение...';
-
-            try {
-                const response = await fetch('/zones', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    alert('✅ ' + result.message);
-                    this.reset();
-
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('addZoneModal'));
-                    modal.hide();
-
-                    // Обновляем страницу через 1 секунду
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    alert('❌ ' + result.error);
-                }
-
-            } catch (error) {
-                alert('❌ Ошибка: ' + error.message);
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = 'Сохранить';
-            }
-        });
-
-        // Обработка модального окна загрузки фото
-        document.getElementById('uploadPhotoModal').addEventListener('show.bs.modal', function (event) {
-            const button = event.relatedTarget;
-            const zoneId = button.getAttribute('data-zone-id');
-            const zoneName = button.getAttribute('data-zone-name');
-
-            const modalTitle = this.querySelector('.modal-title');
-            modalTitle.textContent = `Загрузить фото: ${zoneName}`;
-
-            document.getElementById('uploadZoneId').value = zoneId;
-
-            // Сбрасываем предпросмотр при открытии
-            document.getElementById('previewImage').classList.add('d-none');
-            document.getElementById('noPreview').style.display = 'block';
-            document.querySelector('input[name="photo"]').value = '';
-        });
-
-        // Предпросмотр фото перед загрузкой
-        document.querySelector('input[name="photo"]').addEventListener('change', function (e) {
-            const file = e.target.files[0];
-            const preview = document.getElementById('previewImage');
-            const noPreview = document.getElementById('noPreview');
-
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    preview.src = e.target.result;
-                    preview.classList.remove('d-none');
-                    noPreview.style.display = 'none';
-                }
-                reader.readAsDataURL(file);
+      // удаление
+      document.querySelectorAll('.delete-zone-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-zone-id');
+          const name = btn.getAttribute('data-zone-name');
+          if (!confirm(`Удалить зону «${name}»?`)) return;
+          try {
+            const resp = await fetch(`/zones/${id}`, { method: 'DELETE' });
+            const res = await parseJsonOrThrow(resp);
+            if (res.success) {
+              alert('✅ ' + (res.message || 'Удалено'));
+              location.reload();
             } else {
-                preview.classList.add('d-none');
-                noPreview.style.display = 'block';
+              alert('❌ ' + (res.error || 'Не удалось удалить'));
             }
+          } catch (e) {
+            alert('❌ Ошибка: ' + e.message);
+          }
         });
+      });
 
-        // Обработка загрузки фото
-        document.getElementById('uploadPhotoForm').addEventListener('submit', async function (e) {
-            e.preventDefault();
+      // редактирование — открыть модалку и подгрузить данные
+      document.querySelectorAll('.edit-zone-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-zone-id');
+          try {
+            const resp = await fetch(`/api/zones/${id}`);
+            const res = await parseJsonOrThrow(resp);
+            if (!res.success) throw new Error(res.error || 'Не удалось получить зону');
 
-            const zoneId = document.getElementById('uploadZoneId').value;
-            const formData = new FormData(this);
-            const submitBtn = this.querySelector('button[type="submit"]');
+            const z = res.zone;
+            document.getElementById('editZoneId').value = z.ID || z.id || id;
+            document.getElementById('editName').value = z.Name || z.name || '';
+            document.getElementById('editDescription').value = z.Description || z.description || '';
+            document.getElementById('editCapacity').value = z.Capacity || z.capacity || 1;
+            document.getElementById('editStatus').value = z.Status || z.status || 'Доступна';
 
-            // Показываем загрузку
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '⌛ Загрузка...';
-
-            try {
-                const response = await fetch(`/zones/${zoneId}/upload-photo`, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    alert('✅ ' + result.message);
-
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('uploadPhotoModal'));
-                    modal.hide();
-
-                    // Обновляем страницу через 1 секунду
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    alert('❌ ' + result.error);
-                }
-
-            } catch (error) {
-                alert('❌ Ошибка сети: ' + error.message);
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '📤 Загрузить фото';
-            }
+            new bootstrap.Modal(document.getElementById('editZoneModal')).show();
+          } catch (e) {
+            alert('❌ Ошибка: ' + e.message);
+          }
         });
+      });
 
-        // Функция для удаления зоны (заглушка)
-        function deleteZone(zoneId, zoneName) {
-            alert(`Функция удаления зоны "${zoneName}" (ID: ${zoneId}) будет реализована позже`);
-            // TODO: Реализовать DELETE запрос к API
-   
+      // submit: добавить зону
+      document.getElementById('addZoneForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = e.currentTarget;
+        const btn = form.querySelector('button[type="submit"]');
+        btn.disabled = true; btn.innerHTML = '⌛ Сохранение...';
+        try {
+          const resp = await fetch('/zones', { method: 'POST', body: new FormData(form) });
+          const res = await parseJsonOrThrow(resp);
+          if (res.success) {
+            alert('✅ ' + (res.message || 'Сохранено'));
+            bootstrap.Modal.getInstance(document.getElementById('addZoneModal')).hide();
+            form.reset();
+            setTimeout(() => location.reload(), 500);
+          } else {
+            alert('❌ ' + (res.error || 'Ошибка сохранения'));
+          }
+        } catch (e2) {
+          alert('❌ Ошибка: ' + e2.message);
+        } finally { btn.disabled = false; btn.innerHTML = 'Сохранить'; }
+      });
+
+      // открыть модалку загрузки фото: заполнить скрытое поле и сбросить превью
+      document.getElementById('uploadPhotoModal').addEventListener('show.bs.modal', (ev) => {
+        const btn = ev.relatedTarget;
+        const id = btn.getAttribute('data-zone-id');
+        const name = btn.getAttribute('data-zone-name');
+        document.querySelector('#uploadPhotoModal .modal-title').textContent = `Загрузить фото: ${name}`;
+        document.getElementById('uploadZoneId').value = id;
+        document.getElementById('previewImage').classList.add('d-none');
+        document.getElementById('noPreview').style.display = 'block';
+        document.querySelector('#uploadPhotoForm input[name="photo"]').value = '';
+      });
+
+      // предпросмотр фото
+      document.querySelector('#uploadPhotoForm input[name="photo"]').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        const img = document.getElementById('previewImage');
+        const noPrev = document.getElementById('noPreview');
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = ev2 => { img.src = ev2.target.result; img.classList.remove('d-none'); noPrev.style.display = 'none'; };
+          reader.readAsDataURL(file);
+        } else {
+          img.classList.add('d-none'); noPrev.style.display = 'block';
         }
+      });
 
-        // Увеличение фото при клике
-        document.addEventListener('click', function (e) {
-            if (e.target.classList.contains('photo-preview')) {
-                const imgSrc = e.target.src;
-                const overlay = document.createElement('div');
-                overlay.style.cssText = `
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background: rgba(0,0,0,0.8);
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    z-index: 9999;
-                    cursor: zoom-out;
-                `;
+      // submit: загрузить фото
+      document.getElementById('uploadPhotoForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const zoneId = document.getElementById('uploadZoneId').value;
+        const form = e.currentTarget;
+        const btn = form.querySelector('button[type="submit"]');
+        btn.disabled = true; btn.innerHTML = '⌛ Загрузка...';
+        try {
+          const resp = await fetch(`/zones/${zoneId}/upload-photo`, { method: 'POST', body: new FormData(form) });
+          const res = await parseJsonOrThrow(resp);
+          if (res.success) {
+            alert('✅ ' + (res.message || 'Фото загружено'));
+            bootstrap.Modal.getInstance(document.getElementById('uploadPhotoModal')).hide();
+            setTimeout(() => location.reload(), 500);
+          } else {
+            alert('❌ ' + (res.error || 'Не удалось загрузить'));
+          }
+        } catch (e2) {
+          alert('❌ Ошибка сети: ' + e2.message);
+        } finally { btn.disabled = false; btn.innerHTML = '📤 Загрузить фото'; }
+      });
 
-                const img = document.createElement('img');
-                img.src = imgSrc;
-                img.style.cssText = `
-                    max-width: 90%;
-                    max-height: 90%;
-                    border-radius: 8px;
-                    box-shadow: 0 0 30px rgba(0,0,0,0.5);
-                `;
+      // очистить фото (Фото = NULL)
+      document.getElementById('clearPhotoBtn').addEventListener('click', async () => {
+        const zoneId = document.getElementById('uploadZoneId').value;
+        if (!zoneId) return;
+        if (!confirm('Удалить фотографию зоны?')) return;
+        try {
+          const resp = await fetch(`/zones/${zoneId}/photo`, { method: 'DELETE' });
+          const res = await parseJsonOrThrow(resp);
+          if (res.success) {
+            alert('🧹 Фото удалено');
+            bootstrap.Modal.getInstance(document.getElementById('uploadPhotoModal')).hide();
+            setTimeout(() => location.reload(), 500);
+          } else {
+            alert('❌ ' + (res.error || 'Не удалось удалить фото'));
+          }
+        } catch (e) {
+          alert('❌ Ошибка: ' + e.message);
+        }
+      });
 
-                overlay.appendChild(img);
-                overlay.addEventListener('click', function () {
-                    document.body.removeChild(overlay);
-                });
+      // submit: редактирование зоны
+      document.getElementById('editZoneForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = e.currentTarget;
+        const id = document.getElementById('editZoneId').value;
+        const btn = form.querySelector('button[type="submit"]');
+        btn.disabled = true; btn.innerHTML = '⌛ Сохранение...';
 
-                document.body.appendChild(overlay);
-            }
-        });
-    </script>
+        // Собираем форму как x-www-form-urlencoded, Fiber это нормально парсит
+        const data = new URLSearchParams(new FormData(form));
+
+        try {
+          const resp = await fetch(`/zones/${id}`, { method: 'PUT', body: data });
+          const res = await parseJsonOrThrow(resp);
+          if (res.success) {
+            alert('✅ ' + (res.message || 'Изменения сохранены'));
+            bootstrap.Modal.getInstance(document.getElementById('editZoneModal')).hide();
+            setTimeout(() => location.reload(), 500);
+          } else {
+            alert('❌ ' + (res.error || 'Не удалось сохранить'));
+          }
+        } catch (e2) {
+          alert('❌ Ошибка: ' + e2.message);
+        } finally { btn.disabled = false; btn.innerHTML = 'Сохранить изменения'; }
+      });
+
+      // Зум по клику на фото
+      document.addEventListener('click', (e) => {
+        if (!e.target.classList.contains('photo-preview')) return;
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+          position: fixed; inset: 0; background: rgba(0,0,0,.8);
+          display:flex; justify-content:center; align-items:center; z-index: 9999; cursor: zoom-out;
+        `;
+        const img = document.createElement('img');
+        img.src = e.target.src;
+        img.style.cssText = 'max-width:90%; max-height:90%; border-radius:8px; box-shadow:0 0 30px rgba(0,0,0,.5);';
+        overlay.appendChild(img);
+        overlay.addEventListener('click', () => document.body.removeChild(overlay));
+        document.body.appendChild(overlay);
+      });
+    });
+  </script>
 </body>
-
 </html>

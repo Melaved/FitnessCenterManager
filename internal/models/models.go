@@ -46,12 +46,12 @@ type Subscription struct {
 }
 
 type Zone struct {
-	ID          int            `json:"id_зоны"`
-	Name        string         `json:"название"`
-	Description string         `json:"описание"`
-	Capacity    int            `json:"вместимость"`
-	PhotoPath   sql.NullString `json:"фото_path"`
-	Status      string         `json:"статус"`
+	ID          int    `json:"id_зоны"`
+	Name        string `json:"название"`
+	Description string `json:"описание"`
+	Capacity    int    `json:"вместимость"`
+	HasPhoto    bool   `json:"фото_path"`
+	Status      string `json:"статус"`
 }
 
 type Equipment struct {
