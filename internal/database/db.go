@@ -1,67 +1,100 @@
 package database
 
 import (
-    "database/sql"
-    "fmt"
-    "log"
-    "sync"
-    "fitness-center-manager/internal/config"
-    _ "github.com/lib/pq"
+	"context"
+	"database/sql"
+	"log"
+	"sync"
+	"time"
+
+	"fitness-center-manager/internal/config"
+	_ "github.com/lib/pq"
 )
 
 var (
-    instance *sql.DB
-    once     sync.Once
+	instance *sql.DB
+	once     sync.Once
 )
 
-
-
-func GetDB() *sql.DB{
-	once.Do(func(){
-		cfg := config.LoadConfig()
-		dbConfig := cfg.Database
-		
-        connectionStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-            dbConfig.Host, 
-            dbConfig.Port, 
-            dbConfig.User, 
-            dbConfig.Password,
-            dbConfig.DBName, 
-            dbConfig.SSLMode)
-        
-        var err error
-
-        instance, err = sql.Open("postgres", connectionStr)
-        if err != nil{
-            log.Fatal("Ошибка подключения к БД:", err)
-        }
-
-        if err = instance.Ping(); err != nil{
-            log.Fatal("Ошибка ping БД:", err)
-        }
-
-        instance.SetMaxOpenConns(25)
-        instance.SetMaxIdleConns(25)
-        instance.SetConnMaxLifetime(5 * 60)
-        log.Println("Успешное подключение к PostgreSQL")
+// GetDB возвращает singleton *sql.DB. При первом вызове инициализирует подключение.
+func GetDB() *sql.DB {
+	once.Do(func() {
+		db, err := initDB()
+		if err != nil {
+			log.Fatalf("DB init error: %v", err)
+		}
+		instance = db
 	})
-
-    return instance
+	return instance
 }
 
+// Close аккуратно закрывает пул соединений
+func Close() error {
+	if instance != nil {
+		return instance.Close()
+	}
+	return nil
+}
+
+// TestConnection выполняет простой SELECT 1 для быстрой проверки.
 func TestConnection() error {
-    db := GetDB()
-    
-    var result int
-    err := db.QueryRow("SELECT 1").Scan(&result)
-    if err != nil {
-        return fmt.Errorf("ошибка тестового запроса: %v", err)
-    }
-    
-    if result != 1 {
-        return fmt.Errorf("неожиданный результат теста: %d", result)
-    }
-    
-    log.Println("Тестовый запрос к БД выполнен успешно")
-    return nil
+	db := GetDB()
+	var n int
+	if err := db.QueryRow("SELECT 1").Scan(&n); err != nil {
+		return err
+	}
+	if n != 1 {
+		return sql.ErrNoRows
+	}
+	log.Println("Тестовый запрос к БД выполнен успешно")
+	return nil
+}
+
+// initDB создаёт подключение к Postgres c учётом таймаутов/пула из конфига.
+func initDB() (*sql.DB, error) {
+	cfg := config.LoadConfig()
+	dsn := cfg.Database.DSN()
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	// ==== Таймауты/пул из конфига с дефолтами ====
+	maxOpen := cfg.Database.MaxOpenConns
+	if maxOpen <= 0 {
+		maxOpen = 25
+	}
+	maxIdle := cfg.Database.MaxIdleConns
+	if maxIdle <= 0 {
+		maxIdle = 25
+	}
+	lifeMin := cfg.Database.ConnMaxLifetimeMinutes
+	if lifeMin <= 0 {
+		lifeMin = 5
+	}
+	idleMin := cfg.Database.ConnMaxIdleMinutes
+	if idleMin <= 0 {
+		idleMin = 1
+	}
+	pingSec := cfg.Database.ConnectTimeoutSeconds
+	if pingSec <= 0 {
+		pingSec = 5
+	}
+
+	db.SetMaxOpenConns(maxOpen)
+	db.SetMaxIdleConns(maxIdle)
+	db.SetConnMaxLifetime(time.Duration(lifeMin) * time.Minute)
+	db.SetConnMaxIdleTime(time.Duration(idleMin) * time.Minute)
+
+	// Быстрый ping с таймаутом, чтобы не зависать.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(pingSec)*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+
+	log.Println("Успешное подключение к PostgreSQL")
+	return db, nil
 }

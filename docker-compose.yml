@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/app_user_password
+      POSTGRES_DB: fitness_center
+    # ports:
+    #   - "127.0.0.1:5433:5432" 
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./secrets/app_user_password.txt:/run/secrets/app_user_password:ro
+      - ./init:/docker-entrypoint-initdb.d:ro
+volumes:
+  pgdata: {}

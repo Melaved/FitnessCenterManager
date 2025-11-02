@@ -1,12 +1,24 @@
+# =========================
+# Конфигурация приложения
+# =========================
+
 database:
-  host: "localhost"
+  host: "127.0.0.1" 
   port: "5432"
-  user: "postgres"
+  user: "app_user"
   dbname: "fitness_center"
-  sslmode: "disable"  
+  sslmode: "disable"
+
+
+  # --- параметры пула соединений ---
+  max_open_conns: 25               # максимум открытых соединений
+  max_idle_conns: 25               # максимум "спящих" соединений
+  conn_max_lifetime_minutes: 5     # время жизни соединения
+  conn_max_idle_minutes: 1         # время бездействия соединения
+  connect_timeout_seconds: 5       # таймаут подключения / ping
 
 server:
-  port: ":3000"
-  template_path: "./web/templates"
-  static_path: "./web/static"
-  upload_path: "./web/uploads"
+  port: ":3000"                    # порт веб-сервера
+  template_path: "./web/templates" # путь к HTML-шаблонам
+  static_path: "./web/static"      # путь к статике (css/js)
+  upload_path: "./web/uploads"     # путь для загрузок (изображения, фото и т.п.)

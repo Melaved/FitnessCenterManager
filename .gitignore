@@ -2,6 +2,7 @@
 config.secret.yaml
 .env
 .env.local
+secrets/
 
 # Загружаемые файлы (фото пользователей, тренировок)
 /web/uploads/
