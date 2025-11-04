@@ -1,158 +1,330 @@
 package handlers
 
 import (
+	"database/sql"
+	"fmt"
+	"html/template"
+	"log"
+	"strconv"
+	"time"
+
 	"fitness-center-manager/internal/database"
 	"fitness-center-manager/internal/models"
-	"log"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-// GetSubscriptions отображает страницу абонементов
-func GetSubscriptions(c *fiber.Ctx) error {
-    db := database.GetDB()
-    
-    log.Println("🔍 Получение абонементов из БД...")
-    
-    ctx, cancel := withDBTimeout()
-    defer cancel()
-    rows, err := db.QueryContext(ctx, `
-        SELECT 
-            a."id_абонемента",
-            a."id_клиента", 
-            a."id_тарифа",
-            a."Дата_начала",
-            a."Дата_окончания", 
-            a."Статус",
-            a."Цена",
-            k."ФИО" as "ФИО_клиента",
-            t."Название_тарифа" as "Название_тарифа"
-        FROM "Абонемент" a
-        JOIN "Клиент" k ON a."id_клиента" = k."id_клиента"
-        JOIN "Тариф" t ON a."id_тарифа" = t."id_тарифа"
-        ORDER BY a."id_абонемента"
-    `)
-    
-    if err != nil {
-        log.Printf("❌ Ошибка получения абонементов: %v", err)
-        return c.Render("subscriptions", fiber.Map{
-            "Title":         "Абонементы",
-            "Subscriptions": []models.Subscription{},
-        })
-    }
-    defer rows.Close()
-    
-    var subscriptions []models.Subscription
-    for rows.Next() {
-        var sub models.Subscription
-        err := rows.Scan(
-            &sub.ID,
-            &sub.ClientID,
-            &sub.TariffID, 
-            &sub.StartDate,
-            &sub.EndDate,
-            &sub.Status,
-            &sub.Price,
-            &sub.ClientName,
-            &sub.TariffName,
-        )
-        if err != nil {
-            log.Printf("❌ Ошибка сканирования абонемента: %v", err)
-            continue
-        }
-        subscriptions = append(subscriptions, sub)
-    }
-    
-    log.Printf("✅ Загружено %d абонементов", len(subscriptions))
-    
-    return c.Render("subscriptions", fiber.Map{
-        "Title":         "Абонементы", 
-        "Subscriptions": subscriptions,
-    })
+func templateScript(src string) template.HTML {
+	return template.HTML(fmt.Sprintf(`<script src="%s"></script>`, src))
 }
 
-// GetClientsForSelect возвращает список клиентов для ComboBox
-func GetClientsForSelect(c *fiber.Ctx) error {
-    db := database.GetDB()
-    
-    log.Println("🔍 GetClientsForSelect: получение клиентов для ComboBox...")
-    
-    ctx, cancel := withDBTimeout()
-    defer cancel()
-    rows, err := db.QueryContext(ctx, `
-        SELECT "id_клиента", "ФИО" 
-        FROM "Клиент" 
-        ORDER BY "ФИО"
-    `)
-    if err != nil {
-        log.Printf("❌ GetClientsForSelect ошибка: %v", err)
-        return c.Status(500).JSON(fiber.Map{
-            "success": false,
-            "error":   "Ошибка получения клиентов: " + err.Error(),
-        })
-    }
-    defer rows.Close()
-    
-    var clients []fiber.Map
-    for rows.Next() {
-        var id int
-        var name string
-        err := rows.Scan(&id, &name)
-        if err != nil {
-            log.Printf("❌ Ошибка сканирования клиента: %v", err)
-            continue
-        }
-        clients = append(clients, fiber.Map{
-            "id":   id,
-            "name": name,
-        })
-    }
-    
-    log.Printf("✅ GetClientsForSelect: загружено %d клиентов", len(clients))
-    
-    return c.JSON(fiber.Map{
-        "success": true,
-        "clients": clients,
-    })
+// ====== Страница со списком ======
+func GetSubscriptionsPage(c *fiber.Ctx) error {
+	db := database.GetDB()
+
+	rows, err := db.Query(`
+		SELECT s."id_абонемента",
+		       s."id_клиента",
+		       s."id_тарифа",
+		       s."Дата_начала",
+		       s."Дата_окончания",
+		       s."Статус",
+		       s."Цена",
+		       c."ФИО"              AS client_name,
+		       t."Название_тарифа"  AS tariff_name
+		FROM "Абонемент" s
+		JOIN "Клиент" c ON c."id_клиента" = s."id_клиента"
+		JOIN "Тариф"  t ON t."id_тарифа"  = s."id_тарифа"
+		ORDER BY s."id_абонемента" DESC
+	`)
+	if err != nil {
+		log.Printf("❌ subscriptions list error: %v", err)
+		return c.Render("subscriptions", fiber.Map{
+			"Title":         "Абонементы",
+			"Subscriptions": []models.Subscription{},
+			"Message":       "Не удалось загрузить данные абонементов",
+			"ExtraScripts":  templateScript(`/static/js/subscriptions.js`),
+		})
+	}
+	defer rows.Close()
+
+	var subs []models.Subscription
+	for rows.Next() {
+		var s models.Subscription
+		if err := rows.Scan(
+			&s.ID, &s.ClientID, &s.TariffID,
+			&s.StartDate, &s.EndDate,
+			&s.Status, &s.Price,
+			&s.ClientName, &s.TariffName,
+		); err != nil {
+			log.Printf("❌ scan sub: %v", err)
+			continue
+		}
+		// 👇 ЭТОЙ СТРОКИ НЕ ХВАТАЛО
+		subs = append(subs, s)
+	}
+	if err = rows.Err(); err != nil {
+		log.Printf("❌ rows err: %v", err)
+	}
+
+	log.Printf("✅ загружено абонементов: %d", len(subs))
+
+	return c.Render("subscriptions", fiber.Map{
+		"Title":         "Абонементы",
+		"Subscriptions": subs,
+		"ExtraScripts":  templateScript(`/static/js/subscriptions.js`),
+	})
 }
 
-// GetTrainersForSelect возвращает список тренеров для ComboBox
-func GetTrainersForSelect(c *fiber.Ctx) error {
-    db := database.GetDB()
-    
-    ctx, cancel := withDBTimeout()
-    defer cancel()
-    rows, err := db.QueryContext(ctx, `
-        SELECT "id_тренера", "ФИО" 
-        FROM "Тренер" 
-        WHERE "Активен" = true 
-        ORDER BY "ФИО"
-    `)
-    if err != nil {
-        log.Printf("❌ Ошибка получения тренеров: %v", err)
-        return c.JSON(fiber.Map{
-            "success": false,
-            "error":   "Ошибка получения тренеров",
-        })
-    }
-    defer rows.Close()
-    
-    var trainers []fiber.Map
-    for rows.Next() {
-        var id int
-        var name string
-        err := rows.Scan(&id, &name)
-        if err != nil {
-            continue
-        }
-        trainers = append(trainers, fiber.Map{
-            "id":   id,
-            "name": name,
-        })
-    }
-    
-    return c.JSON(fiber.Map{
-        "success":  true,
-        "trainers": trainers,
-    })
+// ====== Create ======
+func CreateSubscription(c *fiber.Ctx) error {
+	type formT struct {
+		ClientID  int    `form:"client_id"`
+		TariffID  int    `form:"tariff_id"`
+		StartDate string `form:"start_date"` // YYYY-MM-DD
+		EndDate   string `form:"end_date"`   // YYYY-MM-DD
+		Status    string `form:"status"`
+		Price     string `form:"price"` // если пусто — возьмём из тарифа
+	}
+	var f formT
+	if err := c.BodyParser(&f); err != nil {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверные данные формы"})
+	}
+	if f.ClientID <= 0 || f.TariffID <= 0 || f.StartDate == "" || f.EndDate == "" {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Заполните обязательные поля"})
+	}
+
+	start, err := time.Parse("2006-01-02", f.StartDate)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверная дата начала"})
+	}
+	end, err := time.Parse("2006-01-02", f.EndDate)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверная дата окончания"})
+	}
+	if end.Before(start) {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Дата окончания раньше даты начала"})
+	}
+
+	db := database.GetDB()
+
+	// цена
+	var price float64
+	if f.Price != "" {
+		p, err := strconv.ParseFloat(f.Price, 64)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверная цена"})
+		}
+		price = p
+	} else {
+		if err := db.QueryRow(`SELECT "Стоимость" FROM "Тариф" WHERE "id_тарифа"=$1`, f.TariffID).Scan(&price); err != nil {
+			return c.Status(400).JSON(fiber.Map{"success": false, "error": "Не удалось получить стоимость тарифа"})
+		}
+	}
+
+	if f.Status == "" {
+		f.Status = "Активен"
+	}
+
+	var id int
+	err = db.QueryRow(`
+		INSERT INTO "Абонемент" ("id_клиента","id_тарифа","Дата_начала","Дата_окончания","Статус","Цена")
+		VALUES ($1,$2,$3,$4,$5,$6)
+		RETURNING "id_абонемента"
+	`, f.ClientID, f.TariffID, start, end, f.Status, price).Scan(&id)
+	if err != nil {
+		log.Printf("❌ create sub: %v", err)
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка сохранения в БД"})
+	}
+
+	return c.JSON(fiber.Map{"success": true, "message": "Абонемент создан", "id": id})
+}
+
+// ====== Read one ======
+func GetSubscriptionByID(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil || id <= 0 {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
+	}
+
+	db := database.GetDB()
+	var s struct {
+		ID         int       `json:"id"`
+		ClientID   int       `json:"client_id"`
+		TariffID   int       `json:"tariff_id"`
+		StartDate  time.Time `json:"start_date"`
+		EndDate    time.Time `json:"end_date"`
+		Status     string    `json:"status"`
+		Price      float64   `json:"price"`
+		ClientName string    `json:"client_name"`
+		TariffName string    `json:"tariff_name"`
+	}
+
+	err = db.QueryRow(`
+		SELECT s."id_абонемента",
+		       s."id_клиента",
+		       s."id_тарифа",
+		       s."Дата_начала",
+		       s."Дата_окончания",
+		       s."Статус",
+		       s."Цена",
+		       c."ФИО"              AS client_name,
+		       t."Название_тарифа"  AS tariff_name
+		FROM "Абонемент" s
+		JOIN "Клиент" c ON c."id_клиента" = s."id_клиента"
+		JOIN "Тариф"  t ON t."id_тарифа"  = s."id_тарифа"
+		WHERE s."id_абонемента"=$1
+	`, id).Scan(
+		&s.ID, &s.ClientID, &s.TariffID,
+		&s.StartDate, &s.EndDate,
+		&s.Status, &s.Price,
+		&s.ClientName, &s.TariffName,
+	)
+	if err == sql.ErrNoRows {
+		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Абонемент не найден"})
+	}
+	if err != nil {
+		log.Printf("❌ get sub: %v", err)
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка БД"})
+	}
+	return c.JSON(fiber.Map{"success": true, "subscription": s})
+}
+
+// ====== Update ======
+func UpdateSubscription(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil || id <= 0 {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
+	}
+
+	type formT struct {
+		ClientID  int    `form:"client_id"`
+		TariffID  int    `form:"tariff_id"`
+		StartDate string `form:"start_date"`
+		EndDate   string `form:"end_date"`
+		Status    string `form:"status"`
+		Price     string `form:"price"`
+	}
+	var f formT
+	if err := c.BodyParser(&f); err != nil {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверные данные формы"})
+	}
+	if f.ClientID <= 0 || f.TariffID <= 0 || f.StartDate == "" || f.EndDate == "" || f.Status == "" {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Заполните обязательные поля"})
+	}
+
+	start, err := time.Parse("2006-01-02", f.StartDate)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверная дата начала"})
+	}
+	end, err := time.Parse("2006-01-02", f.EndDate)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверная дата окончания"})
+	}
+	if end.Before(start) {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Дата окончания раньше даты начала"})
+	}
+
+	var price float64
+	if f.Price != "" {
+		p, err := strconv.ParseFloat(f.Price, 64)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверная цена"})
+		}
+		price = p
+	} else {
+		// оставить прежнюю цену
+		db := database.GetDB()
+		if err := db.QueryRow(`SELECT "Цена" FROM "Абонемент" WHERE "id_абонемента"=$1`, id).Scan(&price); err != nil {
+			return c.Status(400).JSON(fiber.Map{"success": false, "error": "Не удалось получить текущую цену"})
+		}
+	}
+
+	db := database.GetDB()
+	res, err := db.Exec(`
+		UPDATE "Абонемент"
+		SET "id_клиента"=$2, "id_тарифа"=$3, "Дата_начала"=$4, "Дата_окончания"=$5, "Статус"=$6, "Цена"=$7
+		WHERE "id_абонемента"=$1
+	`, id, f.ClientID, f.TariffID, start, end, f.Status, price)
+	if err != nil {
+		log.Printf("❌ update sub: %v", err)
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка обновления в БД"})
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Абонемент не найден"})
+	}
+	return c.JSON(fiber.Map{"success": true, "message": "Абонемент обновлён"})
+}
+
+// ====== Delete ======
+func DeleteSubscription(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil || id <= 0 {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
+	}
+
+	db := database.GetDB()
+	tx, err := db.Begin()
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Не удалось начать транзакцию"})
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// 1) Персональные тренировки этого абонемента
+	if _, err = tx.Exec(`DELETE FROM "Персональная_тренировка" WHERE "id_абонемента" = $1`, id); err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Невозможно удалить связанные персональные тренировки"})
+	}
+
+	// 2) Записи на групповые тренировки этого абонемента
+	if _, err = tx.Exec(`DELETE FROM "Запись_на_групповую_тренировку" WHERE "id_абонемента" = $1`, id); err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Невозможно удалить групповые записи абонемента"})
+	}
+
+	// 3) Сам абонемент
+	res, err := tx.Exec(`DELETE FROM "Абонемент" WHERE "id_абонемента" = $1`, id)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка удаления абонемента"})
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Абонемент не найден"})
+	}
+
+	if err = tx.Commit(); err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка фиксации транзакции"})
+	}
+
+	return c.JSON(fiber.Map{"success": true, "message": "Абонемент и связанные данные удалены"})
+}
+
+
+// ====== API: тарифы для селекта ======
+func GetTariffsForSelect(c *fiber.Ctx) error {
+	db := database.GetDB()
+	rows, err := db.Query(`
+		SELECT "id_тарифа","Название_тарифа","Стоимость"
+		FROM "Тариф"
+		ORDER BY "id_тарифа"
+	`)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка чтения тарифов"})
+	}
+	defer rows.Close()
+
+	type t struct {
+		ID    int     `json:"id"`
+		Name  string  `json:"name"`
+		Price float64 `json:"price"`
+	}
+	var list []t
+	for rows.Next() {
+		var item t
+		if err := rows.Scan(&item.ID, &item.Name, &item.Price); err == nil {
+			list = append(list, item)
+		}
+	}
+	return c.JSON(fiber.Map{"success": true, "tariffs": list})
 }

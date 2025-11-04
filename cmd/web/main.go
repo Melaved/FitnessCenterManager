@@ -30,9 +30,10 @@ func main() {
 
 	// Создание приложения Fiber
 	app := fiber.New(fiber.Config{
-		Views:     engine,
-		AppName:   "FitnessCenterManager",
-		BodyLimit: 10 * 1024 * 1024, // до 10 МБ на запрос
+		Views:       engine,
+		AppName:     "FitnessCenterManager",
+		ViewsLayout: "layouts/base",
+		BodyLimit:   10 * 1024 * 1024, // до 10 МБ на запрос
 	})
 
 	// -------------------------------
@@ -68,35 +69,41 @@ func main() {
 
 // setupRoutes — маршруты приложения
 func setupRoutes(app *fiber.App) {
-	// Главная
+	// страницы
 	app.Get("/", handlers.Dashboard)
 	app.Get("/about", handlers.About)
 
-	// Клиенты
+	// клиенты
 	app.Get("/clients", handlers.GetClients)
 	app.Post("/clients", handlers.CreateClient)
 	app.Get("/clients/:id", handlers.GetClientByID)
 	app.Put("/clients/:id", handlers.UpdateClient)
 	app.Delete("/clients/:id", handlers.DeleteClient)
 
-	// Абонементы
-	app.Get("/subscriptions", handlers.GetSubscriptions)
+	// --- абонементы
+	app.Get("/subscriptions", handlers.GetSubscriptionsPage)
+	app.Post("/subscriptions", handlers.CreateSubscription)
+	app.Get("/subscriptions/:id", handlers.GetSubscriptionByID)
+	app.Put("/subscriptions/:id", handlers.UpdateSubscription)
+	app.Delete("/subscriptions/:id", handlers.DeleteSubscription)
+
+	// --- тренеры
+	app.Get("/trainers", handlers.GetTrainersPage)      // HTML страница
+	app.Post("/trainers", handlers.CreateTrainer)       // создать
+	app.Get("/trainers/:id", handlers.GetTrainerByID)   // JSON для формы редактирования
+	app.Put("/trainers/:id", handlers.UpdateTrainer)    // обновить
+	app.Delete("/trainers/:id", handlers.DeleteTrainer) // удалить
+
+	// API для селектов
 	app.Get("/api/clients-for-select", handlers.GetClientsForSelect)
-	app.Get("/api/trainers-for-select", handlers.GetTrainersForSelect)
+	app.Get("/api/tariffs-for-select", handlers.GetTariffsForSelect)
 
-	// Зоны с загрузкой фото
-	// Зоны
-	app.Get("/zones", handlers.GetZones)                          // страница
-	app.Get("/api/zones/:id", handlers.GetZoneByID)               // получить одну зону (JSON)
-	app.Post("/zones", handlers.CreateZone)                       // создать (JSON)
-	app.Post("/zones/:id/upload-photo", handlers.UploadZonePhoto) // загрузка фото (JSON)
-	app.Put("/zones/:id", handlers.UpdateZone)                    // обновить (JSON)
-	app.Delete("/zones/:id", handlers.DeleteZone)                 // удалить (JSON)
-	app.Delete("/zones/:id/photo", handlers.ClearZonePhoto)       // очистить фото (JSON)
-	app.Get("/zones/:id/photo", handlers.GetZonePhoto)            // отдача картинки для <img>
-
-	// Остальные
-	app.Get("/trainers", handlers.GetTrainers)
-	app.Get("/trainings", handlers.GetTrainings)
-	app.Get("/equipment", handlers.GetEquipment)
+	// зоны
+	app.Get("/zones", handlers.GetZones)
+	app.Post("/zones", handlers.CreateZone)
+	app.Get("/zones/:id/photo", handlers.GetZonePhoto)
+	app.Post("/zones/:id/upload-photo", handlers.UploadZonePhoto)
+	app.Delete("/zones/:id/photo", handlers.ClearZonePhoto)
+	app.Delete("/zones/:id", handlers.DeleteZone)
+	app.Get("/api/zones/:id", handlers.GetZoneByID)
 }

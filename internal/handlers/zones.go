@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"net/http"
@@ -40,8 +41,6 @@ func validateZoneInput(name string, capacity int, status string) error {
 	}
 	return nil
 }
-
-// ==== READ (list + one) ========================================================================
 
 // GetZones — страница/список зон (рендер шаблона)
 func GetZones(c *fiber.Ctx) error {
@@ -95,17 +94,10 @@ func GetZones(c *fiber.Ctx) error {
 	return c.Render("zones", fiber.Map{
 		"Title": "Зоны",
 		"Zones": zones,
+		"ExtraScripts": template.HTML(`<script src="/static/js/zones.js"></script>`),
 	})
 }
 
-// GetZoneByID — JSON-эндпоинт одной зоны (для формы редактирования)
-/*
-GET /api/zones/:id
-{
-  "success": true,
-  "zone": { ... }
-}
-*/
 func GetZoneByID(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil || id <= 0 {

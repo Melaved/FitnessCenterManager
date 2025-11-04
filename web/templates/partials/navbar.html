@@ -1,0 +1,21 @@
+{{define "partials/navbar"}}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container">
+    <a class="navbar-brand" href="/">🏋️ Фитнес-центр</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item"><a class="nav-link {{if eq .Title "Главная"}}active{{end}}" href="/">📊 Главная</a></li>
+        <li class="nav-item"><a class="nav-link {{if eq .Title "Клиенты"}}active{{end}}" href="/clients">👥 Клиенты</a></li>
+        <li class="nav-item"><a class="nav-link {{if eq .Title "Тренеры"}}active{{end}}" href="/trainers">🏃 Тренеры</a></li>
+        <li class="nav-item"><a class="nav-link {{if eq .Title "Абонементы"}}active{{end}}" href="/subscriptions">🎫 Абонементы</a></li>
+        <li class="nav-item"><a class="nav-link {{if eq .Title "Тренировки"}}active{{end}}" href="/trainings">📅 Тренировки</a></li>
+        <li class="nav-item"><a class="nav-link {{if eq .Title "Зоны"}}active{{end}}" href="/zones">🏟️ Зоны</a></li>
+        <li class="nav-item"><a class="nav-link {{if eq .Title "О программе"}}active{{end}}" href="/about">ℹ️ О программе</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+{{end}}

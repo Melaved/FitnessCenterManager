@@ -3,6 +3,7 @@ package handlers
 import (
 	"fitness-center-manager/internal/database"
 	"fitness-center-manager/internal/models"
+	"html/template"
 	"log"
 	"strconv"
 	"time"
@@ -51,6 +52,7 @@ func GetClients(c *fiber.Ctx) error {
     return c.Render("clients", fiber.Map{
         "Title":   "Клиенты",
         "Clients": clients,
+        "ExtraScripts": template.HTML(`<script src="/static/js/clients.js"></script>`),
     })
 }
 
@@ -299,4 +301,26 @@ func DeleteClient(c *fiber.Ctx) error{
         "success": true,
         "message": "Клиент успешно удален",
     })
+}
+
+func GetClientsForSelect(c *fiber.Ctx) error {
+	db := database.GetDB()
+	rows, err := db.Query(`SELECT "id_клиента","ФИО" FROM "Клиент" ORDER BY "id_клиента"`)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка чтения клиентов"})
+	}
+	defer rows.Close()
+
+	type item struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	}
+	var list []item
+	for rows.Next() {
+		var v item
+		if err := rows.Scan(&v.ID, &v.Name); err == nil {
+			list = append(list, v)
+		}
+	}
+	return c.JSON(fiber.Map{"success": true, "clients": list})
 }

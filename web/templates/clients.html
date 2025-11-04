@@ -1,665 +1,111 @@
-<!DOCTYPE html>
-<html lang="ru">
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1>👥 {{.Title}}</h1>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addClientModal">➕ Добавить клиента</button>
+</div>
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Title}} - Фитнес-центр</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="/">🏋️ Фитнес-центр</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item"><a class="nav-link" href="/">📊 Главная</a></li>
-                    <li class="nav-item"><a class="nav-link active" href="/clients">👥 Клиенты</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/trainers">🏃 Тренеры</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/subscriptions">🎫 Абонементы</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/trainings">📅 Тренировки</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/zones">🏟️ Зоны</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/about">ℹ️ О программе</a></li>
-                </ul>
-            </div>
+<!-- Фильтры -->
+<div class="card mb-4">
+  <div class="card-header"><h5 class="card-title mb-0">🔍 Фильтры</h5></div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-6">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="filterMedicalData">
+          <label class="form-check-label" for="filterMedicalData">📋 Только с медицинскими данными</label>
         </div>
-    </nav>
-    <div class="container mt-4">
-        <!-- Заголовок и кнопка добавления -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>👥 {{.Title}}</h1>
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addClientModal">
-                ➕ Добавить клиента
-            </button>
+      </div>
+      <div class="col-md-6">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="filterRecentClients">
+          <label class="form-check-label" for="filterRecentClients">🆕 Клиенты за последние 30 дней</label>
         </div>
-
-        <!-- Панель фильтров - ПЕРЕД таблицей -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="card-title mb-0">🔍 Фильтры</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="filterMedicalData">
-                            <label class="form-check-label" for="filterMedicalData">
-                                📋 Только с медицинскими данными
-                            </label>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="filterRecentClients">
-                            <label class="form-check-label" for="filterRecentClients">
-                                🆕 Клиенты за последние 30 дней
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Кнопки действий с фильтрами -->
-                <div class="mt-3">
-                    <button class="btn btn-outline-primary btn-sm" onclick="applyFilters()">
-                        ✅ Применить фильтры
-                    </button>
-                    <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()">
-                        🗑️ Сбросить фильтры
-                    </button>
-                    <span class="badge bg-info ms-2" id="filterStatus">
-                        Все клиенты
-                    </span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Таблица клиентов -->
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Список клиентов</h5>
-            </div>
-            <div class="card-body">
-                {{if .Clients}}
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>ID</th>
-                                <th>ФИО</th>
-                                <th>Телефон</th>
-                                <th>Дата рождения</th>
-                                <th>Дата регистрации</th>
-                                <th>Мед. данные</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {{range .Clients}}
-                            <tr>
-                                <td>{{.ID}}</td>
-                                <td>{{.FIO}}</td>
-                                <td>{{.Phone}}</td>
-                                <td>{{.BirthDate.Format "02.01.2006"}}</td>
-                                <td>{{.RegisterDate.Format "02.01.2006"}}</td>
-                                <td>
-                                    {{if .MedicalData.Valid}}
-                                    {{if ne .MedicalData.String ""}}
-                                    <span class="badge bg-info">Есть</span>
-                                    {{else}}
-                                    <span class="badge bg-secondary">Нет</span>
-                                    {{end}}
-                                    {{else}}
-                                    <span class="badge bg-secondary">Нет</span>
-                                    {{end}}
-                                </td>
-                                <td>
-                                    <button class="btn btn-sm btn-outline-primary edit-client-btn"
-                                        data-client-id="{{.ID}}" data-bs-toggle="tooltip" data-bs-placement="top"
-                                        title="Редактировать клиента">
-                                        ✏️
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger delete-client-btn"
-                                        data-client-id="{{.ID}}" data-client-name="{{.FIO}}" data-bs-toggle="tooltip"
-                                        data-bs-placement="top" title="Удалить клиента">
-                                        🗑️
-                                    </button>
-                                </td>
-                            </tr>
-                            {{end}}
-                        </tbody>
-                    </table>
-                </div>
-                {{else}}
-                <div class="alert alert-info">
-                    <h5>Клиентов не найдено</h5>
-                    <p>Нажмите "Добавить клиента" чтобы создать первого клиента</p>
-                </div>
-                {{end}}
-            </div>
-        </div>
+      </div>
     </div>
-
-
-
-    <!-- Модальное окно добавления клиента -->
-    <div class="modal fade" id="addClientModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Добавить клиента</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form id="addClientForm">
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">ФИО *</label>
-                            <input type="text" class="form-control" name="fio" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Телефон *</label>
-                            <input type="tel" class="form-control" name="phone" pattern="\+7[0-9]{10}"
-                                placeholder="+79161234567" required>
-                            <div class="form-text">Формат: +7XXXXXXXXXX</div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Дата рождения *</label>
-                            <input type="date" class="form-control" name="birth_date" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Медицинские данные</label>
-                            <textarea class="form-control" name="medical_data" rows="3"
-                                placeholder="Аллергии, хронические заболевания..."></textarea>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                        <button type="submit" class="btn btn-primary">Сохранить</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+    <div class="mt-3">
+      <button class="btn btn-outline-primary btn-sm" onclick="applyFilters()">✅ Применить фильтры</button>
+      <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()">🗑️ Сбросить фильтры</button>
+      <span class="badge bg-info ms-2" id="filterStatus">Все клиенты</span>
     </div>
+  </div>
+</div>
 
-    <!-- Модальное окно редактирования клиента -->
-    <div class="modal fade" id="editClientModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Редактировать клиента</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form id="editClientForm">
-                    <input type="hidden" id="editClientId" name="id">
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">ФИО *</label>
-                            <input type="text" class="form-control" id="editFio" name="fio" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Телефон *</label>
-                            <input type="tel" class="form-control" id="editPhone" name="phone" pattern="\+7[0-9]{10}"
-                                placeholder="+79161234567" required>
-                            <div class="form-text">Формат: +7XXXXXXXXXX</div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Дата рождения *</label>
-                            <input type="date" class="form-control" id="editBirthDate" name="birth_date" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Медицинские данные</label>
-                            <textarea class="form-control" id="editMedicalData" name="medical_data" rows="3"
-                                placeholder="Аллергии, хронические заболевания..."></textarea>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                        <button type="submit" class="btn btn-primary">Обновить</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+<!-- Таблица -->
+<div class="card">
+  <div class="card-header"><h5 class="card-title mb-0">Список клиентов</h5></div>
+  <div class="card-body">
+    {{if .Clients}}
+    <div class="table-responsive">
+      <table class="table table-striped table-hover">
+        <thead class="table-dark">
+          <tr>
+            <th>ID</th><th>ФИО</th><th>Телефон</th><th>Дата рождения</th><th>Дата регистрации</th><th>Мед. данные</th><th>Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .Clients}}
+          <tr>
+            <td>{{.ID}}</td>
+            <td>{{.FIO}}</td>
+            <td>{{.Phone}}</td>
+            <td>{{.BirthDate.Format "02.01.2006"}}</td>
+            <td>{{.RegisterDate.Format "02.01.2006"}}</td>
+            <td>
+              {{if .MedicalData.Valid}}
+                {{if ne .MedicalData.String ""}}<span class="badge bg-info">Есть</span>{{else}}<span class="badge bg-secondary">Нет</span>{{end}}
+              {{else}}<span class="badge bg-secondary">Нет</span>{{end}}
+            </td>
+            <td>
+              <button class="btn btn-sm btn-outline-primary edit-client-btn" data-client-id="{{.ID}}" title="Редактировать клиента">✏️</button>
+              <button class="btn btn-sm btn-outline-danger delete-client-btn" data-client-id="{{.ID}}" data-client-name="{{.FIO}}" title="Удалить клиента">🗑️</button>
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
     </div>
+    {{else}}
+    <div class="alert alert-info"><h5>Клиентов не найдено</h5><p>Нажмите «Добавить клиента», чтобы создать первого</p></div>
+    {{end}}
+  </div>
+</div>
 
-    <footer class="bg-dark text-light mt-5 py-3">
-        <div class="container text-center">
-            <small>Фитнес-центр &copy; 2025</small>
+<!-- Модалка: добавить -->
+<div class="modal fade" id="addClientModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Добавить клиента</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <form id="addClientForm">
+      <div class="modal-body">
+        <div class="mb-3"><label class="form-label">ФИО *</label><input type="text" class="form-control" name="fio" required></div>
+        <div class="mb-3">
+          <label class="form-label">Телефон *</label>
+          <input type="tel" class="form-control" name="phone" pattern="\+7[0-9]{10}" placeholder="+79161234567" required>
+          <div class="form-text">Формат: +7XXXXXXXXXX</div>
         </div>
-    </footer>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Инициализация при загрузке страницы
-        document.addEventListener('DOMContentLoaded', function () {
-            console.log('✅ Страница клиентов загружена');
-
-            // Инициализация tooltips
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl)
-            });
-
-            // Инициализация фильтров
-            updateFilterStatus();
-
-            // Обработчики для кнопок редактирования
-            initializeEditButtons();
-        });
-
-        // ==================== РЕДАКТИРОВАНИЕ КЛИЕНТОВ ====================
-
-        function initializeEditButtons() {
-            // Обработчик для всех кнопок редактирования
-            document.querySelectorAll('.edit-client-btn').forEach(button => {
-                button.addEventListener('click', function () {
-                    const clientId = this.getAttribute('data-client-id');
-                    console.log('🎯 Редактирование клиента ID:', clientId);
-                    loadClientForEditing(clientId);
-                });
-            });
-        }
-
-        // Загрузка данных клиента для редактирования
-        async function loadClientForEditing(clientId) {
-            try {
-                console.log('🔍 Загрузка данных клиента ID:', clientId);
-
-                const response = await fetch(`/clients/${clientId}`);
-                const result = await response.json();
-
-                if (result.success) {
-                    console.log('✅ Данные клиента загружены:', result.client);
-                    populateEditForm(result.client);
-
-                    // Показываем модальное окно редактирования
-                    const editModal = new bootstrap.Modal(document.getElementById('editClientModal'));
-                    editModal.show();
-                } else {
-                    alert('❌ ' + result.error);
-                }
-
-            } catch (error) {
-                console.error('❌ Ошибка загрузки клиента:', error);
-                alert('❌ Ошибка загрузки данных клиента: ' + error.message);
-            }
-        }
-
-        // Заполнение формы редактирования данными клиента
-        function populateEditForm(client) {
-            document.getElementById('editClientId').value = client.id;
-            document.getElementById('editFio').value = client.fio;
-            document.getElementById('editPhone').value = client.phone;
-            document.getElementById('editBirthDate').value = client.birth_date;
-            document.getElementById('editMedicalData').value = client.medical_data || '';
-
-            console.log('📝 Форма редактирования заполнена данными клиента');
-        }
-
-        // Обработка формы редактирования клиента
-        document.getElementById('editClientForm').addEventListener('submit', async function (e) {
-            e.preventDefault();
-
-            const clientId = document.getElementById('editClientId').value;
-            const formData = new FormData(this);
-            const submitBtn = this.querySelector('button[type="submit"]');
-
-            console.log('📤 Отправка данных для обновления клиента ID:', clientId);
-
-            // Показываем загрузку
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '⌛ Обновление...';
-
-            try {
-                const response = await fetch(`/clients/${clientId}`, {
-                    method: 'PUT',
-                    body: formData
-                });
-
-                const result = await response.json();
-                console.log('📥 Ответ сервера при обновлении:', result);
-
-                if (result.success) {
-                    alert('✅ ' + result.message);
-
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('editClientModal'));
-                    modal.hide();
-
-                    // НЕМЕДЛЕННОЕ обновление данных
-                    await loadClientsData();
-                } else {
-                    alert('❌ ' + result.error);
-                }
-
-            } catch (error) {
-                console.error('❌ Ошибка обновления клиента:', error);
-                alert('❌ Ошибка обновления: ' + error.message);
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = 'Обновить';
-            }
-        });
-
-        // ==================== ДОБАВЛЕНИЕ КЛИЕНТОВ ====================
-
-        document.getElementById('addClientForm').addEventListener('submit', async function (e) {
-            e.preventDefault();
-
-            const formData = new FormData(this);
-            const submitBtn = this.querySelector('button[type="submit"]');
-
-            // Показываем загрузку
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '⌛ Сохранение...';
-
-            try {
-                const response = await fetch('/clients', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-                console.log('📥 Ответ сервера при создании:', result);
-
-                if (result.success) {
-                    alert('✅ ' + result.message);
-                    this.reset();
-
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('addClientModal'));
-                    modal.hide();
-
-                    // НЕМЕДЛЕННОЕ обновление данных
-                    await loadClientsData();
-                } else {
-                    alert('❌ ' + result.error);
-                }
-
-            } catch (error) {
-                console.error('❌ Ошибка создания клиента:', error);
-                alert('❌ Ошибка: ' + error.message);
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = 'Сохранить';
-            }
-        });
-
-
-        // ==================== ФИЛЬТРАЦИЯ ====================
-
-        let currentFilters = {
-            medicalData: false,
-            recentClients: false
-        };
-
-        // Функция применения фильтров
-        function applyFilters() {
-            console.log('🎯 Применение фильтров...');
-
-            // Получаем состояние CheckBox'ов
-            currentFilters.medicalData = document.getElementById('filterMedicalData').checked;
-            currentFilters.recentClients = document.getElementById('filterRecentClients').checked;
-
-            console.log('📊 Активные фильтры:', currentFilters);
-
-            // Фильтруем таблицу
-            filterTable();
-
-            // Обновляем статус
-            updateFilterStatus();
-        }
-
-        // Функция фильтрации таблицы
-        function filterTable() {
-            const rows = document.querySelectorAll('table tbody tr');
-            let visibleCount = 0;
-
-            rows.forEach(row => {
-                let showRow = true;
-
-                // Фильтр по медицинским данным
-                if (currentFilters.medicalData) {
-                    const medicalBadge = row.querySelector('td:nth-child(6) .badge');
-                    if (medicalBadge && medicalBadge.textContent === 'Нет') {
-                        showRow = false;
-                    }
-                }
-
-                // Фильтр по новым клиентам (последние 30 дней)
-                if (currentFilters.recentClients) {
-                    const registerDateText = row.querySelector('td:nth-child(5)').textContent;
-                    const registerDate = parseDate(registerDateText);
-                    const thirtyDaysAgo = new Date();
-                    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-                    if (registerDate < thirtyDaysAgo) {
-                        showRow = false;
-                    }
-                }
-
-                // Показываем/скрываем строку
-                row.style.display = showRow ? '' : 'none';
-                if (showRow) visibleCount++;
-            });
-
-            console.log(`✅ Отображено ${visibleCount} из ${rows.length} клиентов`);
-
-            // Показываем сообщение если нет результатов
-            showNoResultsMessage(visibleCount === 0);
-        }
-
-        // Функция парсинга даты из формата "dd.mm.yyyy"
-        function parseDate(dateString) {
-            const parts = dateString.split('.');
-            return new Date(parts[2], parts[1] - 1, parts[0]);
-        }
-
-        // Функция сброса фильтров
-        function clearFilters() {
-            console.log('🔄 Сброс фильтров...');
-
-            // Сбрасываем CheckBox
-            document.getElementById('filterMedicalData').checked = false;
-            document.getElementById('filterRecentClients').checked = false;
-
-            // Сбрасываем фильтры
-            currentFilters.medicalData = false;
-            currentFilters.recentClients = false;
-
-            // Показываем все строки
-            const rows = document.querySelectorAll('table tbody tr');
-            rows.forEach(row => row.style.display = '');
-
-            // Обновляем статус
-            updateFilterStatus();
-
-            // Скрываем сообщение "нет результатов"
-            showNoResultsMessage(false);
-
-            console.log('✅ Фильтры сброшены');
-        }
-
-        // Функция обновления статуса фильтров
-        function updateFilterStatus() {
-            const statusElement = document.getElementById('filterStatus');
-            let statusText = 'Все клиенты';
-
-            if (currentFilters.medicalData && currentFilters.recentClients) {
-                statusText = 'С мед. данными + новые';
-            } else if (currentFilters.medicalData) {
-                statusText = 'Только с мед. данными';
-            } else if (currentFilters.recentClients) {
-                statusText = 'Только новые клиенты';
-            }
-
-            statusElement.textContent = statusText;
-        }
-
-        // Функция показа/скрытия сообщения "нет результатов"
-        function showNoResultsMessage(show) {
-            let noResultsMsg = document.getElementById('noResultsMessage');
-
-            if (show && !noResultsMsg) {
-                noResultsMsg = document.createElement('div');
-                noResultsMsg.id = 'noResultsMessage';
-                noResultsMsg.className = 'alert alert-warning mt-3';
-                noResultsMsg.innerHTML = `
-                    <h5>🤷‍♂️ Клиенты не найдены</h5>
-                    <p>Попробуйте изменить параметры фильтрации</p>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="clearFilters()">
-                        Сбросить фильтры
-                    </button>
-                `;
-
-                const tableCard = document.querySelector('.card');
-                tableCard.parentNode.insertBefore(noResultsMsg, tableCard.nextSibling);
-            } else if (!show && noResultsMsg) {
-                noResultsMsg.remove();
-            }
-        }
-
-        // Функция для загрузки и обновления данных клиентов
-        async function loadClientsData() {
-            console.log('🔄 Загрузка актуальных данных клиентов...');
-
-            try {
-                const response = await fetch('/clients');
-                const html = await response.text();
-
-                // Создаем временный элемент для парсинга HTML
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = html;
-
-                // Находим таблицу клиентов в новом HTML
-                const newTableBody = tempDiv.querySelector('table tbody');
-                const currentTableBody = document.querySelector('table tbody');
-
-                if (newTableBody && currentTableBody) {
-                    // Заменяем содержимое таблицы
-                    currentTableBody.innerHTML = newTableBody.innerHTML;
-                    console.log('✅ Данные клиентов обновлены');
-
-                    // Переинициализируем кнопки редактирования
-                    initializeEditButtons();
-
-                    // Сбрасываем фильтры
-                    clearFilters();
-                } else {
-                    // Если не удалось обновить таблицу, перезагружаем страницу
-                    console.log('⚠️ Не удалось обновить таблицу, перезагружаем страницу');
-                    location.reload();
-                }
-
-            } catch (error) {
-                console.error('❌ Ошибка загрузки данных:', error);
-                // При ошибке перезагружаем страницу
-                location.reload();
-            }
-        }
-        // ==================== УДАЛЕНИЕ КЛИЕНТОВ ====================
-
-        // Инициализация кнопок удаления
-        function initializeDeleteButtons() {
-            document.querySelectorAll('.delete-client-btn').forEach(button => {
-                button.addEventListener('click', function () {
-                    const clientId = this.getAttribute('data-client-id');
-                    const clientName = this.getAttribute('data-client-name');
-                    confirmDeleteClient(clientId, clientName);
-                });
-            });
-        }
-
-        // Подтверждение удаления клиента
-        function confirmDeleteClient(clientId, clientName) {
-            if (confirm(`Вы уверены, что хотите удалить клиента "${clientName}"?\n\nЭто действие нельзя отменить!`)) {
-                deleteClient(clientId, clientName);
-            }
-        }
-
-        // Удаление клиента
-        async function deleteClient(clientId, clientName) {
-            console.log('🗑️ Удаление клиента ID:', clientId);
-
-            try {
-                const response = await fetch(`/clients/${clientId}`, {
-                    method: 'DELETE'
-                });
-
-                const result = await response.json();
-                console.log('📥 Ответ сервера при удалении:', result);
-
-                if (result.success) {
-                    alert('✅ ' + result.message);
-                    // Обновляем данные
-                    await loadClientsData();
-                } else {
-                    alert('❌ ' + result.error);
-                }
-
-            } catch (error) {
-                console.error('❌ Ошибка удаления клиента:', error);
-                alert('❌ Ошибка удаления: ' + error.message);
-            }
-        }
-
-        // Обновите функцию инициализации
-        document.addEventListener('DOMContentLoaded', function () {
-            console.log('✅ Страница клиентов загружена');
-
-            // Инициализация tooltips
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl)
-            });
-
-            // Инициализация фильтров
-            updateFilterStatus();
-
-            // Инициализация кнопок редактирования и удаления
-            initializeEditButtons();
-            initializeDeleteButtons();  // ✅ ДОБАВЬТЕ ЭТУ СТРОКУ
-        });
-
-        // Обновите функцию loadClientsData для переинициализации кнопок
-        async function loadClientsData() {
-            console.log('🔄 Загрузка актуальных данных клиентов...');
-
-            try {
-                const response = await fetch('/clients');
-                const html = await response.text();
-
-                // Создаем временный элемент для парсинга HTML
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = html;
-
-                // Находим таблицу клиентов в новом HTML
-                const newTableBody = tempDiv.querySelector('table tbody');
-                const currentTableBody = document.querySelector('table tbody');
-
-                if (newTableBody && currentTableBody) {
-                    // Заменяем содержимое таблицы
-                    currentTableBody.innerHTML = newTableBody.innerHTML;
-                    console.log('✅ Данные клиентов обновлены');
-
-                    // Переинициализируем ВСЕ кнопки
-                    initializeEditButtons();
-                    initializeDeleteButtons();
-
-                    // Сбрасываем фильтры
-                    clearFilters();
-                } else {
-                    // Если не удалось обновить таблицу, перезагружаем страницу
-                    console.log('⚠️ Не удалось обновить таблицу, перезагружаем страницу');
-                    location.reload();
-                }
-
-            } catch (error) {
-                console.error('❌ Ошибка загрузки данных:', error);
-                location.reload();
-            }
-        }
-    </script>
-</body>
-
-</html>
+        <div class="mb-3"><label class="form-label">Дата рождения *</label><input type="date" class="form-control" name="birth_date" required></div>
+        <div class="mb-3"><label class="form-label">Медицинские данные</label><textarea class="form-control" name="medical_data" rows="3" placeholder="Аллергии, хронические заболевания..."></textarea></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button><button type="submit" class="btn btn-primary">Сохранить</button></div>
+    </form>
+  </div></div>
+</div>
+
+<!-- Модалка: редактировать -->
+<div class="modal fade" id="editClientModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Редактировать клиента</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <form id="editClientForm">
+      <input type="hidden" id="editClientId" name="id">
+      <div class="modal-body">
+        <div class="mb-3"><label class="form-label">ФИО *</label><input type="text" class="form-control" id="editFio" name="fio" required></div>
+        <div class="mb-3">
+          <label class="form-label">Телефон *</label>
+          <input type="tel" class="form-control" id="editPhone" name="phone" pattern="\+7[0-9]{10}" placeholder="+79161234567" required>
+          <div class="form-text">Формат: +7XXXXXXXXXX</div>
+        </div>
+        <div class="mb-3"><label class="form-label">Дата рождения *</label><input type="date" class="form-control" id="editBirthDate" name="birth_date" required></div>
+        <div class="mb-3"><label class="form-label">Медицинские данные</label><textarea class="form-control" id="editMedicalData" name="medical_data" rows="3"></textarea></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button><button type="submit" class="btn btn-primary">Обновить</button></div>
+    </form>
+  </div></div>
+</div>
