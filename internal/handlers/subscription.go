@@ -2,8 +2,6 @@ package handlers
 
 import (
 	"database/sql"
-	"fmt"
-	"html/template"
 	"log"
 	"strconv"
 	"time"
@@ -13,10 +11,6 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 )
-
-func templateScript(src string) template.HTML {
-	return template.HTML(fmt.Sprintf(`<script src="%s"></script>`, src))
-}
 
 // ====== Страница со списком ======
 func GetSubscriptionsPage(c *fiber.Ctx) error {

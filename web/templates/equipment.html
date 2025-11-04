@@ -1,0 +1,336 @@
+<!-- views/equipment.html -->
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>🛠️ {{.Title}}</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEquipmentModal">
+        ➕ Добавить оборудование
+    </button>
+</div>
+
+<!-- Список оборудования -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Оборудование</h5>
+    </div>
+    <div class="card-body">
+        {{if .Items}}
+        <div class="row">
+            {{range .Items}}
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <strong>{{.Name}}</strong>
+                        <span class="badge bg-secondary">{{.ZoneName}}</span>
+                    </div>
+
+                    <div class="card-body">
+                        <div class="text-center mb-3">
+                            {{if .HasPhoto}}
+                            <img src="/equipment/{{.ID}}/photo" class="img-thumbnail photo-preview" alt="{{.Name}}"
+                                style="max-height:160px;">
+                            {{else}}
+                            <div class="d-flex align-items-center justify-content-center border rounded"
+                                style="height:160px;background:#f8f9fa">
+                                <span class="text-muted">📷 Нет фото</span>
+                            </div>
+                            {{end}}
+                        </div>
+
+                        <ul class="list-group list-group-flush mb-3">
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Куплено:</span><span>{{.PurchaseDate}}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Последнее ТО:</span><span>{{.LastServiceDate}}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Статус:</span>
+                                <span class="badge
+                  {{if eq .Status " Работает"}}bg-success {{else if eq .Status "На ремонте" }}bg-warning
+                                    {{else}}bg-secondary{{end}}">
+                                    {{.Status}}
+                                </span>
+                            </li>
+                        </ul>
+
+                        <div class="btn-group w-100">
+                            <button class="btn btn-outline-success btn-sm" data-bs-toggle="modal"
+                                data-bs-target="#uploadPhotoModal" data-eq-id="{{.ID}}" data-eq-name="{{.Name}}">
+                                📷 Фото
+                            </button>
+
+                            <button class="btn btn-outline-primary btn-sm edit-eq-btn" data-eq-id="{{.ID}}">
+                                ✏️ Изменить
+                            </button>
+
+                            <button class="btn btn-outline-danger btn-sm delete-eq-btn" data-eq-id="{{.ID}}"
+                                data-eq-name="{{.Name}}">
+                                🗑️ Удалить
+                            </button>
+
+                            <button class="btn btn-outline-secondary btn-sm repair-btn" data-eq-id="{{.ID}}"
+                                data-eq-name="{{.Name}}">
+                                📝 Заявка
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {{end}}
+        </div>
+        {{else}}
+        <div class="alert alert-info mb-0">Оборудование не найдено. Добавьте первое устройство.</div>
+        {{end}}
+    </div>
+</div>
+
+<!-- Последние заявки -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Последние заявки на ремонт</h5>
+    </div>
+    <div class="card-body">
+        {{if .Repairs}}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle" id="repairsTableOnEquipment">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Оборудование</th>
+                        <th>Создана</th>
+                        <th>Приоритет</th>
+                        <th>Статус</th>
+                        <th>Фото</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Repairs}}
+                    <tr>
+                        <td>{{.ID}}</td>
+                        <td>{{.EquipmentName}}</td>
+                        <td>{{.CreatedAt.Format "02.01.2006 15:04"}}</td>
+                        <td>
+                            <span class="badge
+                {{if eq .Priority " Высокий"}}bg-danger {{else if eq .Priority "Средний" }}bg-warning
+                                {{else}}bg-secondary{{end}}">
+                                {{.Priority}}
+                            </span>
+                        </td>
+                        <td>{{.Status}}</td>
+                        <td class="text-center">
+                            {{if .HasPhoto}}
+                            <button class="btn btn-sm btn-outline-secondary view-repair-photo-btn"
+                                data-repair-id="{{.ID}}" title="Просмотреть фото">
+                                👁
+                            </button>
+                            {{else}}
+                            <span class="text-muted">—</span>
+                            {{end}}
+                        </td>
+
+                        <td class="text-center text-nowrap">
+                            <button class="btn btn-sm btn-outline-danger repair-delete-btn" data-repair-id="{{.ID}}"
+                                title="Удалить заявку">
+                                🗑️
+                            </button>
+                        </td>
+
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <div class="alert alert-info mb-0">Заявок пока нет.</div>
+        {{end}}
+    </div>
+</div>
+
+<!-- Модалка: добавить оборудование -->
+<div class="modal fade" id="addEquipmentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Добавить оборудование</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <form id="addEquipmentForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Зона *</label>
+                        <select class="form-select" name="zone_id" id="eqZoneSelect" required>
+                            <option value="">Загрузка...</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Название *</label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Дата покупки</label>
+                            <input type="date" class="form-control" name="purchase_date">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Дата последнего ТО</label>
+                            <input type="date" class="form-control" name="last_service_date">
+                        </div>
+                    </div>
+                    <div class="mb-3 mt-3">
+                        <label class="form-label">Статус</label>
+                        <select class="form-select" name="status">
+                            <option value="Работает" selected>Работает</option>
+                            <option value="На ремонте">На ремонте</option>
+                            <option value="Списано">Списано</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Отмена</button>
+                    <button class="btn btn-primary" type="submit">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Модалка: загрузка фото оборудования -->
+<div class="modal fade" id="uploadPhotoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Загрузить фото</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <form id="uploadPhotoForm" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <input type="hidden" id="uploadEqId" name="eq_id">
+                    <div class="mb-3">
+                        <label class="form-label">Файл</label>
+                        <input type="file" class="form-control" name="photo" accept="image/jpeg,image/png,image/webp"
+                            required>
+                        <div class="form-text">JPEG/PNG/WebP, до 5 МБ</div>
+                    </div>
+                    <div class="text-center">
+                        <img id="eqPreview" class="img-thumbnail d-none" style="max-height:200px;">
+                        <div id="eqNoPreview" class="text-muted">📷 Предпросмотр появится после выбора файла</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" type="button" id="clearEqPhotoBtn">🧹 Очистить
+                        фото</button>
+                    <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Отмена</button>
+                    <button class="btn btn-success" type="submit">📤 Загрузить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Модалка: редактировать оборудование -->
+<div class="modal fade" id="editEquipmentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Редактировать оборудование</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <form id="editEquipmentForm">
+                <div class="modal-body">
+                    <input type="hidden" id="editEqId" name="id">
+
+                    <div class="mb-3">
+                        <label class="form-label">Зона *</label>
+                        <select class="form-select" name="zone_id" id="editEqZoneSelect" required>
+                            <option value="">Загрузка...</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Название *</label>
+                        <input type="text" class="form-control" name="name" id="editEqName" required>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Дата покупки</label>
+                            <input type="date" class="form-control" name="purchase_date" id="editEqPurchase">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Дата последнего ТО</label>
+                            <input type="date" class="form-control" name="last_service_date" id="editEqLastTO">
+                        </div>
+                    </div>
+
+                    <div class="mb-3 mt-3">
+                        <label class="form-label">Статус</label>
+                        <select class="form-select" name="status" id="editEqStatus">
+                            <option value="Работает">Работает</option>
+                            <option value="На ремонте">На ремонте</option>
+                            <option value="Списано">Списано</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Отмена</button>
+                    <button class="btn btn-primary" type="submit">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Модалка: создать заявку на ремонт -->
+<div class="modal fade" id="repairModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Заявка на ремонт</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <form id="repairForm" enctype="multipart/form-data">
+                <input type="hidden" id="repairEqId" name="eq_id">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Описание проблемы *</label>
+                        <textarea class="form-control" name="description" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Приоритет</label>
+                        <select class="form-select" name="priority">
+                            <option value="Низкий">Низкий</option>
+                            <option value="Средний" selected>Средний</option>
+                            <option value="Высокий">Высокий</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Фото (опционально)</label>
+                        <input type="file" class="form-control" name="photo" accept="image/jpeg,image/png,image/webp">
+                        <div class="form-text">Для фиксации дефекта</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Отмена</button>
+                    <button class="btn btn-primary" type="submit">Создать заявку</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Модалка: предпросмотр фото заявки -->
+<div class="modal fade" id="repairPhotoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Фото заявки</h5>
+                <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="repairPhotoImg" class="img-fluid rounded" alt="Фото заявки">
+                <div id="repairPhotoError" class="text-muted d-none">Фото не найдено</div>
+            </div>
+        </div>
+    </div>
+</div>

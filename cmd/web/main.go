@@ -80,24 +80,41 @@ func setupRoutes(app *fiber.App) {
 	app.Put("/clients/:id", handlers.UpdateClient)
 	app.Delete("/clients/:id", handlers.DeleteClient)
 
-	// --- абонементы
+	// абонементы
 	app.Get("/subscriptions", handlers.GetSubscriptionsPage)
 	app.Post("/subscriptions", handlers.CreateSubscription)
 	app.Get("/subscriptions/:id", handlers.GetSubscriptionByID)
 	app.Put("/subscriptions/:id", handlers.UpdateSubscription)
 	app.Delete("/subscriptions/:id", handlers.DeleteSubscription)
 
-	// --- тренеры
+	// тренеры
 	app.Get("/trainers", handlers.GetTrainersPage)      // HTML страница
 	app.Post("/trainers", handlers.CreateTrainer)       // создать
 	app.Get("/trainers/:id", handlers.GetTrainerByID)   // JSON для формы редактирования
 	app.Put("/trainers/:id", handlers.UpdateTrainer)    // обновить
 	app.Delete("/trainers/:id", handlers.DeleteTrainer) // удалить
 
+	// групповые
+	app.Get("/trainings", handlers.GetTrainingsPage)
+	app.Get("/api/group-trainings/:id", handlers.GetGroupTrainingByID)
+	app.Post("/group-trainings", handlers.CreateGroupTraining)
+	app.Put("/group-trainings/:id", handlers.UpdateGroupTraining)
+	app.Delete("/group-trainings/:id", handlers.DeleteGroupTraining)
+
+	// персональные
+	app.Get("/api/personal-trainings/:id", handlers.GetPersonalTrainingByID)
+	app.Post("/personal-trainings", handlers.CreatePersonalTraining)
+	app.Put("/personal-trainings/:id", handlers.UpdatePersonalTraining)
+	app.Delete("/personal-trainings/:id", handlers.DeletePersonalTraining)
+
+	// запись на групповую
+	app.Post("/group-enrollments", handlers.CreateGroupEnrollment)
 	// API для селектов
 	app.Get("/api/clients-for-select", handlers.GetClientsForSelect)
 	app.Get("/api/tariffs-for-select", handlers.GetTariffsForSelect)
-
+	app.Get("/api/trainers-for-select", handlers.GetTrainersForSelect)
+	app.Get("/api/zones-for-select", handlers.GetZonesForSelect)
+	app.Get("/api/subscriptions-for-select", handlers.GetSubscriptionsForSelect)
 	// зоны
 	app.Get("/zones", handlers.GetZones)
 	app.Post("/zones", handlers.CreateZone)
@@ -106,4 +123,28 @@ func setupRoutes(app *fiber.App) {
 	app.Delete("/zones/:id/photo", handlers.ClearZonePhoto)
 	app.Delete("/zones/:id", handlers.DeleteZone)
 	app.Get("/api/zones/:id", handlers.GetZoneByID)
+
+	// страницы
+	app.Get("/equipment", handlers.GetEquipmentPage)
+
+	// API
+	app.Get("/api/zones-for-select", handlers.GetZonesForSelect)
+	app.Get("/api/equipment/:id", handlers.GetEquipmentByID)
+	app.Get("/api/repairs/latest", handlers.GetLatestRepairs)
+
+	// CRUD оборудования
+	app.Post("/equipment", handlers.CreateEquipment)
+	app.Put("/equipment/:id", handlers.UpdateEquipment)
+	app.Delete("/equipment/:id", handlers.DeleteEquipment)
+
+	// фото оборудования
+	app.Post("/equipment/:id/upload-photo", handlers.UploadEquipmentPhoto)
+	app.Get("/equipment/:id/photo", handlers.GetEquipmentPhoto)
+	app.Delete("/equipment/:id/photo", handlers.DeleteEquipmentPhoto)
+
+	// заявки на ремонт
+	app.Post("/repairs", handlers.CreateRepairRequest)
+	app.Get("/repairs/:id/photo", handlers.GetRepairPhoto)
+	app.Delete("/repairs/:id", handlers.DeleteRepairRequest)
+
 }

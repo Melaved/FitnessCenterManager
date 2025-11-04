@@ -19,8 +19,6 @@ import (
 	"fitness-center-manager/internal/models"
 )
 
-const maxUpload = 5 * 1024 * 1024 // 5MB
-
 // ==== helpers ===================================================================================
 
 var allowedStatuses = map[string]bool{

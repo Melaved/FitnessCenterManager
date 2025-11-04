@@ -201,3 +201,34 @@ func DeleteTrainer(c *fiber.Ctx) error {
 	}
 	return c.JSON(fiber.Map{"success": true, "message": "Тренер удалён"})
 }
+
+func GetTrainersForSelect(c *fiber.Ctx) error {
+	db := database.GetDB()
+
+	rows, err := db.Query(`
+		SELECT "id_тренера", "ФИО"
+		FROM "Тренер"
+		ORDER BY "ФИО"
+	`)
+	if err != nil {
+		log.Printf("❌ trainers-for-select: %v", err)
+		return c.Status(500).JSON(fiber.Map{
+			"success": false,
+			"error":   "Ошибка чтения тренеров",
+		})
+	}
+	defer rows.Close()
+
+	type item struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	}
+	var out []item
+	for rows.Next() {
+		var it item
+		if err := rows.Scan(&it.ID, &it.Name); err == nil {
+			out = append(out, it)
+		}
+	}
+	return c.JSON(fiber.Map{"success": true, "trainers": out})
+}
