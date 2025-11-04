@@ -14,7 +14,9 @@ func GetSubscriptions(c *fiber.Ctx) error {
     
     log.Println("🔍 Получение абонементов из БД...")
     
-    rows, err := db.Query(`
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    rows, err := db.QueryContext(ctx, `
         SELECT 
             a."id_абонемента",
             a."id_клиента", 
@@ -75,7 +77,9 @@ func GetClientsForSelect(c *fiber.Ctx) error {
     
     log.Println("🔍 GetClientsForSelect: получение клиентов для ComboBox...")
     
-    rows, err := db.Query(`
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    rows, err := db.QueryContext(ctx, `
         SELECT "id_клиента", "ФИО" 
         FROM "Клиент" 
         ORDER BY "ФИО"
@@ -116,7 +120,9 @@ func GetClientsForSelect(c *fiber.Ctx) error {
 func GetTrainersForSelect(c *fiber.Ctx) error {
     db := database.GetDB()
     
-    rows, err := db.Query(`
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    rows, err := db.QueryContext(ctx, `
         SELECT "id_тренера", "ФИО" 
         FROM "Тренер" 
         WHERE "Активен" = true 

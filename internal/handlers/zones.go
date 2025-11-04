@@ -48,7 +48,9 @@ func GetZones(c *fiber.Ctx) error {
 	db := database.GetDB()
 	log.Println("🔍 Получение зон из БД...")
 
-	rows, err := db.Query(`
+	ctx, cancel := withDBTimeout()
+	defer cancel()
+	rows, err := db.QueryContext(ctx, `
 		SELECT 
 			"id_зоны",
 			"Название", 
@@ -112,7 +114,9 @@ func GetZoneByID(c *fiber.Ctx) error {
 
 	db := database.GetDB()
 	var z models.Zone
-	err = db.QueryRow(`
+	ctx, cancel := withDBTimeout()
+	defer cancel()
+	err = db.QueryRowContext(ctx, `
 		SELECT 
 			"id_зоны", "Название", "Описание", "Вместимость", "Статус",
 			("Фото" IS NOT NULL) AS has_photo
@@ -152,7 +156,9 @@ func CreateZone(c *fiber.Ctx) error {
 
 	db := database.GetDB()
 	var zoneID int
-	if err := db.QueryRow(`
+	ctx, cancel := withDBTimeout()
+	defer cancel()
+	if err := db.QueryRowContext(ctx, `
 		INSERT INTO "Зона" ("Название","Описание","Вместимость","Статус")
 		VALUES ($1,$2,$3,$4)
 		RETURNING "id_зоны"
@@ -189,7 +195,9 @@ func UpdateZone(c *fiber.Ctx) error {
 	}
 
 	db := database.GetDB()
-	res, err := db.Exec(`
+	ctx, cancel := withDBTimeout()
+	defer cancel()
+	res, err := db.ExecContext(ctx, `
 		UPDATE "Зона"
 		SET "Название"=$2, "Описание"=$3, "Вместимость"=$4, "Статус"=$5
 		WHERE "id_зоны"=$1
@@ -211,7 +219,9 @@ func ClearZonePhoto(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
 	}
 	db := database.GetDB()
-	res, err := db.Exec(`UPDATE "Зона" SET "Фото"=NULL WHERE "id_зоны"=$1`, id)
+	ctx, cancel := withDBTimeout()
+	defer cancel()
+	res, err := db.ExecContext(ctx, `UPDATE "Зона" SET "Фото"=NULL WHERE "id_зоны"=$1`, id)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"success": false, "error": "DB: ошибка обновления"})
 	}
@@ -231,7 +241,9 @@ func DeleteZone(c *fiber.Ctx) error {
 	}
 	db := database.GetDB()
 
-	res, err := db.Exec(`DELETE FROM "Зона" WHERE "id_зоны"=$1`, id)
+	ctx, cancel := withDBTimeout()
+	defer cancel()
+	res, err := db.ExecContext(ctx, `DELETE FROM "Зона" WHERE "id_зоны"=$1`, id)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"success": false, "error": "DB: ошибка удаления"})
 	}
@@ -300,7 +312,9 @@ func UploadZonePhoto(c *fiber.Ctx) error {
 	}
 
 	db := database.GetDB()
-	res, err := db.Exec(`UPDATE "Зона" SET "Фото"=$2 WHERE "id_зоны"=$1`, id, buf)
+	ctx, cancel := withDBTimeout()
+	defer cancel()
+	res, err := db.ExecContext(ctx, `UPDATE "Зона" SET "Фото"=$2 WHERE "id_зоны"=$1`, id, buf)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false, "error": "DB: ошибка сохранения",
@@ -324,7 +338,9 @@ func GetZonePhoto(c *fiber.Ctx) error {
 
 	db := database.GetDB()
 	var img []byte
-	err = db.QueryRow(`SELECT "Фото" FROM "Зона" WHERE "id_зоны"=$1`, id).Scan(&img)
+	ctx, cancel := withDBTimeout()
+	defer cancel()
+	err = db.QueryRowContext(ctx, `SELECT "Фото" FROM "Зона" WHERE "id_зоны"=$1`, id).Scan(&img)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		return c.Status(fiber.StatusNotFound).SendString("Зона не найдена")

@@ -10,7 +10,9 @@ import (
 func GetTrainers(c *fiber.Ctx) error {
 	db := database.GetDB()
 
-	rows, err := db.Query(`
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    rows, err := db.QueryContext(ctx, `
         SELECT 
             "id_тренера", 
             "ФИО", 

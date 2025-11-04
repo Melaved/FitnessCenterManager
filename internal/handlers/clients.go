@@ -13,7 +13,9 @@ import (
 func GetClients(c *fiber.Ctx) error {
     db := database.GetDB()
     
-    rows, err := db.Query(`
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    rows, err := db.QueryContext(ctx, `
         SELECT 
             "id_клиента", 
             "ФИО", 
@@ -101,12 +103,15 @@ func CreateClient(c *fiber.Ctx) error {
     db := database.GetDB()
     
     // ОТЛАДОЧНАЯ ИНФОРМАЦИЯ
-    log.Printf("📝 Данные для сохранения: FIO=%s, Phone=%s, MedicalData='%s'", 
-        form.FIO, form.Phone, form.MedicalData)
+    // redact sensitive medical data in logs
+    log.Printf("📝 Данные для сохранения: FIO=%s, Phone=%s", 
+        form.FIO, form.Phone)
     
     var clientID int
     // Если MedicalData пустая строка, она сохранится как NULL
-    err = db.QueryRow(`
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    err = db.QueryRowContext(ctx, `
         INSERT INTO "Клиент" ("ФИО", "Номер_телефона", "Дата_рождения", "Медицинские_данные")
         VALUES ($1, $2, $3, $4)
         RETURNING "id_клиента"
@@ -120,7 +125,7 @@ func CreateClient(c *fiber.Ctx) error {
         })
     }
     
-    log.Printf("✅ Клиент создан! ID: %d, Мед.данные: '%s'", clientID, form.MedicalData)
+    log.Printf("✅ Клиент создан! ID: %d", clientID)
     
     return c.JSON(fiber.Map{
         "success": true,
@@ -136,7 +141,9 @@ func GetClientByID(c *fiber.Ctx) error {
     db := database.GetDB()
     
     var client models.Client
-    err := db.QueryRow(`
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    err := db.QueryRowContext(ctx, `
         SELECT 
             "id_клиента", 
             "ФИО", 
@@ -210,7 +217,9 @@ func UpdateClient(c *fiber.Ctx) error {
     
     db := database.GetDB()
     
-    result, err := db.Exec(`
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    result, err := db.ExecContext(ctx, `
         UPDATE "Клиент" 
         SET "ФИО" = $1, "Номер_телефона" = $2, "Дата_рождения" = $3, "Медицинские_данные" = $4
         WHERE "id_клиента" = $5
@@ -252,7 +261,9 @@ func DeleteClient(c *fiber.Ctx) error{
     var subscriptionCount int
 
     //Проверка абонементов
-    err = db.QueryRow(`SELECT COUNT(*) FROM Абонемент WHERE id_клиента = $1`, clientID).Scan(&subscriptionCount)
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    err = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM Абонемент WHERE id_клиента = $1`, clientID).Scan(&subscriptionCount)
     if err != nil {
         return c.Status(500).JSON(fiber.Map{
             "success": false,
@@ -266,7 +277,9 @@ func DeleteClient(c *fiber.Ctx) error{
         })
     }
 
-    result, err := db.Exec(`DELETE FROM Клиент WHERE id_клиента = $1`,clientID)
+    ctx, cancel = withDBTimeout()
+    defer cancel()
+    result, err := db.ExecContext(ctx, `DELETE FROM Клиент WHERE id_клиента = $1`,clientID)
     if err != nil{
         return c.Status(500).JSON(fiber.Map{
             "success": false,
