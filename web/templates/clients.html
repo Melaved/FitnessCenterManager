@@ -3,6 +3,15 @@
   <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addClientModal">➕ Добавить клиента</button>
 </div>
 
+<!-- Поиск -->
+<form id="clientsSearchForm" class="input-group mb-3" method="get">
+  <input type="search" class="form-control" name="q" placeholder="Поиск по ФИО, телефону или ID" value="{{index .Filter "q"}}">
+  <input type="hidden" name="medical" value="{{if index .Filter "medical"}}1{{end}}">
+  <input type="hidden" name="recent" value="{{if index .Filter "recent"}}1{{end}}">
+  <button class="btn btn-outline-primary" type="submit">Найти</button>
+  {{if index .Filter "q"}}<a class="btn btn-outline-secondary" href="/clients">Сброс</a>{{end}}
+</form>
+
 <!-- Фильтры -->
 <div class="card mb-4">
   <div class="card-header"><h5 class="card-title mb-0">🔍 Фильтры</h5></div>
@@ -10,21 +19,26 @@
     <div class="row">
       <div class="col-md-6">
         <div class="form-check">
-          <input class="form-check-input" type="checkbox" id="filterMedicalData">
+          <input class="form-check-input" type="checkbox" id="filterMedicalData" {{if index .Filter "medical"}}checked{{end}}>
           <label class="form-check-label" for="filterMedicalData">📋 Только с медицинскими данными</label>
         </div>
       </div>
       <div class="col-md-6">
         <div class="form-check">
-          <input class="form-check-input" type="checkbox" id="filterRecentClients">
+          <input class="form-check-input" type="checkbox" id="filterRecentClients" {{if index .Filter "recent"}}checked{{end}}>
           <label class="form-check-label" for="filterRecentClients">🆕 Клиенты за последние 30 дней</label>
         </div>
       </div>
     </div>
-    <div class="mt-3">
-      <button class="btn btn-outline-primary btn-sm" onclick="applyFilters()">✅ Применить фильтры</button>
-      <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()">🗑️ Сбросить фильтры</button>
-      <span class="badge bg-info ms-2" id="filterStatus">Все клиенты</span>
+    <div class="mt-3 d-flex gap-2">
+      <button class="btn btn-outline-primary btn-sm" id="applyClientsFiltersBtn" type="button">✅ Применить</button>
+      <a class="btn btn-outline-secondary btn-sm" href="/clients">🗑️ Сбросить</a>
+      <span class="badge bg-info ms-2" id="filterStatus">
+        {{if index .Filter "q"}}Поиск: «{{index .Filter "q"}}»; {{end}}
+        {{if index .Filter "medical"}}Мед. данные; {{end}}
+        {{if index .Filter "recent"}}За 30 дней; {{end}}
+        {{if not (or (index .Filter "q") (index .Filter "medical") (index .Filter "recent"))}}Все клиенты{{end}}
+      </span>
     </div>
   </div>
 </div>
@@ -68,6 +82,8 @@
     {{end}}
   </div>
 </div>
+
+
 
 <!-- Модалка: добавить -->
 <div class="modal fade" id="addClientModal" tabindex="-1" aria-hidden="true">

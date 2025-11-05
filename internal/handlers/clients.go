@@ -6,55 +6,104 @@ import (
 	"html/template"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 func GetClients(c *fiber.Ctx) error {
-    db := database.GetDB()
-    
-    ctx, cancel := withDBTimeout()
-    defer cancel()
-    rows, err := db.QueryContext(ctx, `
-        SELECT 
-            "id_клиента", 
-            "ФИО", 
-            "Номер_телефона", 
-            "Дата_рождения", 
-            "Дата_регистрации", 
-            "Медицинские_данные"
-        FROM "Клиент" 
-        ORDER BY "id_клиента"
-    `)
-    if err != nil {
-        return c.Status(500).SendString("Ошибка получения клиентов: " + err.Error())
-    }
-    defer rows.Close()
-    
-    var clients []models.Client
-    for rows.Next() {
-        var client models.Client
-        err := rows.Scan(
-            &client.ID,
-            &client.FIO, 
-            &client.Phone,
-            &client.BirthDate,
-            &client.RegisterDate,
-            &client.MedicalData,
-        )
-        if err != nil {
-            return c.Status(500).SendString("Ошибка сканирования клиента: " + err.Error())
-        }
-        clients = append(clients, client)
-    }
-    
-    return c.Render("clients", fiber.Map{
-        "Title":   "Клиенты",
-        "Clients": clients,
-        "ExtraScripts": template.HTML(`<script src="/static/js/clients.js"></script>`),
-    })
+	db := database.GetDB()
+
+	q := strings.TrimSpace(c.Query("q"))     // строка поиска
+	onlyWithMed := c.Query("medical") == "1" // чекбокс «только с мед. данными»
+	recent30 := c.Query("recent") == "1"     // чекбокс «за 30 дней»
+
+	// динамический WHERE
+	where := []string{}
+	args := []any{}
+
+	// отдельный счётчик плейсхолдеров ($1, $2, ...)
+	n := 1
+	nextPH := func() string {
+		s := "$" + strconv.Itoa(n)
+		n++
+		return s
+	}
+
+	if q != "" {
+		like := "%" + q + "%"
+		// получаем ТРИ РАЗНЫХ плейсхолдера ($1, $2, $3)
+		p1 := nextPH()
+		p2 := nextPH()
+		p3 := nextPH()
+		where = append(where, `(
+			"ФИО" ILIKE `+p1+` OR
+			"Номер_телефона" ILIKE `+p2+` OR
+			CAST("id_клиента" AS TEXT) ILIKE `+p3+`
+		)`)
+		args = append(args, like, like, like)
+	}
+
+	if onlyWithMed {
+		where = append(where, `COALESCE(NULLIF("Медицинские_данные", ''), NULL) IS NOT NULL`)
+	}
+
+	if recent30 {
+		where = append(where, `"Дата_регистрации" >= NOW() - INTERVAL '30 days'`)
+	}
+
+	query := `
+		SELECT 
+			"id_клиента", 
+			"ФИО", 
+			"Номер_телефона", 
+			"Дата_рождения", 
+			"Дата_регистрации", 
+			"Медицинские_данные"
+		FROM "Клиент"
+	`
+	if len(where) > 0 {
+		query += " WHERE " + strings.Join(where, " AND ")
+	}
+	query += ` ORDER BY "id_клиента"`
+
+	ctx, cancel := withDBTimeout()
+	defer cancel()
+	rows, err := db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return c.Status(500).SendString("Ошибка получения клиентов: " + err.Error())
+	}
+	defer rows.Close()
+
+	var clients []models.Client
+	for rows.Next() {
+		var client models.Client
+		if err := rows.Scan(
+			&client.ID,
+			&client.FIO,
+			&client.Phone,
+			&client.BirthDate,
+			&client.RegisterDate,
+			&client.MedicalData,
+		); err != nil {
+			return c.Status(500).SendString("Ошибка сканирования клиента: " + err.Error())
+		}
+		clients = append(clients, client)
+	}
+
+	return c.Render("clients", fiber.Map{
+		"Title":   "Клиенты",
+		"Clients": clients,
+		"Filter": fiber.Map{
+			"q":       q,
+			"medical": onlyWithMed,
+			"recent":  recent30,
+		},
+		"ExtraScripts": template.HTML(`<script src="/static/js/clients.js?v=2"></script>`),
+	})
 }
+
 
 // CreateClient создает нового клиента
 func CreateClient(c *fiber.Ctx) error {

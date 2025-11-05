@@ -2,13 +2,13 @@ package handlers
 
 import (
 	"database/sql"
+	"fitness-center-manager/internal/database"
 	"fmt"
-
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
-	"fitness-center-manager/internal/database"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -42,8 +42,30 @@ func GetSubscriptionsForSelect(c *fiber.Ctx) error {
 func GetTrainingsPage(c *fiber.Ctx) error {
 	db := database.GetDB()
 
-	// Групповые
-	gr, err := db.Query(`
+	// ---- параметры фильтра ----
+	q := strings.TrimSpace(c.Query("q"))                 // общий поиск
+	qTrainer := strings.TrimSpace(c.Query("trainer_id")) // ID тренера
+	qZone := strings.TrimSpace(c.Query("zone_id"))       // ID зоны (групповые)
+	qLevel := strings.TrimSpace(c.Query("level"))        // Начальный|Средний|Продвинутый (групповые)
+	qStatus := strings.TrimSpace(c.Query("status"))      // Запланирована|Завершена|Отменена (персональные)
+	qFrom := strings.TrimSpace(c.Query("from"))          // 2006-01-02 / 2006-01-02T15:04
+	qTo := strings.TrimSpace(c.Query("to"))
+	onlyUpcoming := c.Query("upcoming") == "1"
+	recent30 := c.Query("recent") == "1"
+
+	// ================== ГРУППОВЫЕ ==================
+	whereG := []string{}
+	argsG := []any{}
+	nextPHG := func(n int) []string {
+		start := len(argsG) + 1
+		ph := make([]string, n)
+		for i := 0; i < n; i++ {
+			ph[i] = "$" + strconv.Itoa(start+i)
+		}
+		return ph
+	}
+
+	queryG := `
 		SELECT g."id_групповой_тренировки",
 		       g."Название",
 		       COALESCE(g."Описание",''),
@@ -56,40 +78,93 @@ func GetTrainingsPage(c *fiber.Ctx) error {
 		FROM "Групповая_тренировка" g
 		JOIN "Тренер" t ON t."id_тренера" = g."id_тренера"
 		JOIN "Зона"   z ON z."id_зоны"   = g."id_зоны"
-		ORDER BY g."Время_начала" DESC, g."id_групповой_тренировки" DESC
-	`)
-	if err != nil {
-		log.Printf("groups list err: %v", err)
-		return c.Render("trainings", fiber.Map{
-			"Title":        "Тренировки",
-			"Groups":       []fiber.Map{},
-			"Personal":     []fiber.Map{},
-			"ExtraScripts": templateScript("/static/js/trainings.js"),
-			"Error":        "Не удалось загрузить групповые тренировки",
-		})
+	`
+
+	if q != "" {
+		like := "%" + q + "%"
+		ph := nextPHG(3)
+		whereG = append(whereG, `(
+			g."Название" ILIKE `+ph[0]+` OR
+			t."ФИО"      ILIKE `+ph[1]+` OR
+			z."Название" ILIKE `+ph[2]+`
+		)`)
+		argsG = append(argsG, like, like, like)
 	}
-	defer gr.Close()
+	if qTrainer != "" {
+		ph := nextPHG(1)
+		whereG = append(whereG, `g."id_тренера" = `+ph[0]+`::int`)
+		argsG = append(argsG, qTrainer)
+	}
+	if qZone != "" {
+		ph := nextPHG(1)
+		whereG = append(whereG, `g."id_зоны" = `+ph[0]+`::int`)
+		argsG = append(argsG, qZone)
+	}
+	if qLevel != "" {
+		ph := nextPHG(1)
+		whereG = append(whereG, `g."Уровень_сложности" = `+ph[0])
+		argsG = append(argsG, qLevel)
+	}
+	if qFrom != "" {
+		ph := nextPHG(1)
+		whereG = append(whereG, `g."Время_начала" >= `+ph[0]+`::timestamp`)
+		argsG = append(argsG, qFrom)
+	}
+	if qTo != "" {
+		ph := nextPHG(1)
+		whereG = append(whereG, `g."Время_начала" <= `+ph[0]+`::timestamp`)
+		argsG = append(argsG, qTo)
+	}
+	if onlyUpcoming {
+		ph := nextPHG(1)
+		whereG = append(whereG, `g."Время_начала" >= `+ph[0]+`::timestamp`)
+		argsG = append(argsG, time.Now())
+	}
+	if recent30 {
+		whereG = append(whereG, `g."Время_начала" >= NOW() - INTERVAL '30 days'`)
+	}
+
+	if len(whereG) > 0 {
+		queryG += " WHERE " + strings.Join(whereG, " AND ")
+	}
+	queryG += ` ORDER BY g."Время_начала" DESC, g."id_групповой_тренировки" DESC`
 
 	var groups []fiber.Map
-	for gr.Next() {
-		var (
-			id, max int
-			title, desc, level, trainerName, zoneName string
-			start, end time.Time
-			trainerID, zoneID int
-		)
-		if err := gr.Scan(&id, &title, &desc, &max, &start, &end, &level, &trainerName, &trainerID, &zoneName, &zoneID); err == nil {
-			groups = append(groups, fiber.Map{
-				"ID": id, "Title": title, "Description": desc, "Max": max,
-				"Start": start, "End": end, "Level": level,
-				"TrainerName": trainerName, "TrainerID": trainerID,
-				"ZoneName": zoneName, "ZoneID": zoneID,
-			})
+	if gr, err := db.Query(queryG, argsG...); err != nil {
+		log.Printf("groups list err: %v", err)
+	} else {
+		defer gr.Close()
+		for gr.Next() {
+			var (
+				id, max int
+				title, desc, level, trainerName, zoneName string
+				start, end time.Time
+				trainerID, zoneID int
+			)
+			if err := gr.Scan(&id, &title, &desc, &max, &start, &end, &level, &trainerName, &trainerID, &zoneName, &zoneID); err == nil {
+				groups = append(groups, fiber.Map{
+					"ID": id, "Title": title, "Description": desc, "Max": max,
+					"Start": start, "End": end, "Level": level,
+					"TrainerName": trainerName, "TrainerID": trainerID,
+					"ZoneName": zoneName, "ZoneID": zoneID,
+				})
+			}
 		}
 	}
 
-	// Персональные
-	pr, err := db.Query(`
+	// ================== ПЕРСОНАЛЬНЫЕ ==================
+	whereP := []string{}
+	argsP := []any{}
+	nextPHP := func(n int) []string {
+		start := len(argsP) + 1
+		ph := make([]string, n)
+		for i := 0; i < n; i++ {
+			ph[i] = "$" + strconv.Itoa(start+i)
+		}
+		return ph
+	}
+
+	queryP := `
 		SELECT p."id_персональной_тренировки",
 		       p."Время_начала", p."Время_окончания",
 		       p."Статус", COALESCE(p."Стоимость",0),
@@ -99,10 +174,53 @@ func GetTrainingsPage(c *fiber.Ctx) error {
 		JOIN "Абонемент" a ON a."id_абонемента" = p."id_абонемента"
 		JOIN "Клиент"    c ON c."id_клиента"    = a."id_клиента"
 		JOIN "Тренер"    t ON t."id_тренера"    = p."id_тренера"
-		ORDER BY p."Время_начала" DESC, p."id_персональной_тренировки" DESC
-	`)
+	`
+
+	if q != "" {
+		like := "%" + q + "%"
+		ph := nextPHP(2)
+		whereP = append(whereP, `(
+			c."ФИО" ILIKE `+ph[0]+` OR
+			t."ФИО" ILIKE `+ph[1]+`
+		)`)
+		argsP = append(argsP, like, like)
+	}
+	if qTrainer != "" {
+		ph := nextPHP(1)
+		whereP = append(whereP, `p."id_тренера" = `+ph[0]+`::int`)
+		argsP = append(argsP, qTrainer)
+	}
+	if qStatus != "" {
+		ph := nextPHP(1)
+		whereP = append(whereP, `p."Статус" = `+ph[0])
+		argsP = append(argsP, qStatus)
+	}
+	if qFrom != "" {
+		ph := nextPHP(1)
+		whereP = append(whereP, `p."Время_начала" >= `+ph[0]+`::timestamp`)
+		argsP = append(argsP, qFrom)
+	}
+	if qTo != "" {
+		ph := nextPHP(1)
+		whereP = append(whereP, `p."Время_начала" <= `+ph[0]+`::timestamp`)
+		argsP = append(argsP, qTo)
+	}
+	if onlyUpcoming {
+		ph := nextPHP(1)
+		whereP = append(whereP, `p."Время_начала" >= `+ph[0]+`::timestamp`)
+		argsP = append(argsP, time.Now())
+	}
+	if recent30 {
+		whereP = append(whereP, `p."Время_начала" >= NOW() - INTERVAL '30 days'`)
+	}
+
+	if len(whereP) > 0 {
+		queryP += " WHERE " + strings.Join(whereP, " AND ")
+	}
+	queryP += ` ORDER BY p."Время_начала" DESC, p."id_персональной_тренировки" DESC`
+
 	var personal []fiber.Map
-	if err == nil {
+	if pr, err := db.Query(queryP, argsP...); err == nil {
 		defer pr.Close()
 		for pr.Next() {
 			var (
@@ -121,12 +239,25 @@ func GetTrainingsPage(c *fiber.Ctx) error {
 				})
 			}
 		}
+	} else {
+		log.Printf("personal list err: %v", err)
 	}
 
 	return c.Render("trainings", fiber.Map{
-		"Title":        "Тренировки",
-		"Groups":       groups,
-		"Personal":     personal,
+		"Title":    "Тренировки",
+		"Groups":   groups,
+		"Personal": personal,
+		"Filter": fiber.Map{
+			"q":          q,
+			"trainer_id": qTrainer,
+			"zone_id":    qZone,
+			"level":      qLevel,
+			"status":     qStatus,
+			"from":       qFrom,
+			"to":         qTo,
+			"upcoming":   onlyUpcoming,
+			"recent":     recent30,
+		},
 		"ExtraScripts": templateScript("/static/js/trainings.js"),
 	})
 }

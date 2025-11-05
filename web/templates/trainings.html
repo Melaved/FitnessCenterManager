@@ -1,3 +1,5 @@
+<!-- views/trainings.html -->
+
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h1>📅 {{.Title}}</h1>
   <div class="btn-group">
@@ -5,6 +7,103 @@
     <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addPersonalModal">➕ Персональная</button>
   </div>
 </div>
+
+<!-- Поиск (как на clients) -->
+<form id="trSearchForm" class="input-group mb-3" method="get">
+  <input type="search" class="form-control" name="q" placeholder="Поиск: название, тренер/зона (групп.), клиент/тренер (персон.)" value="{{index .Filter "q"}}">
+
+  <!-- скрытые поля, чтобы поиск не сбрасывал остальные фильтры -->
+  <input type="hidden" name="trainer_id" value="{{index .Filter "trainer_id"}}">
+  <input type="hidden" name="zone_id" value="{{index .Filter "zone_id"}}">
+  <input type="hidden" name="level" value="{{index .Filter "level"}}">
+  <input type="hidden" name="status" value="{{index .Filter "status"}}">
+  <input type="hidden" name="from" value="{{index .Filter "from"}}">
+  <input type="hidden" name="to" value="{{index .Filter "to"}}">
+  <input type="hidden" name="upcoming" value="{{if index .Filter "upcoming"}}1{{end}}">
+  <input type="hidden" name="recent" value="{{if index .Filter "recent"}}1{{end}}">
+
+  <button class="btn btn-outline-primary">Найти</button>
+  {{if index .Filter "q"}}<a class="btn btn-outline-secondary" href="/trainings">Сброс</a>{{end}}
+</form>
+
+<!-- Фильтры -->
+<form id="trFiltersForm" class="card mb-4" method="get" action="/trainings">
+  <div class="card-header"><h5 class="card-title mb-0">🔍 Фильтры</h5></div>
+  <div class="card-body">
+    <div class="row g-3 align-items-end">
+      <div class="col-md-2">
+        <label class="form-label">ID тренера</label>
+        <input class="form-control" id="fTrainer" name="trainer_id" value="{{index .Filter "trainer_id"}}" placeholder="например, 3">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">ID зоны (групп.)</label>
+        <input class="form-control" id="fZone" name="zone_id" value="{{index .Filter "zone_id"}}" placeholder="например, 2">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Уровень (групп.)</label>
+        <select class="form-select" id="fLevel" name="level">
+          {{ $lvl := index .Filter "level" }}
+          <option value="">—</option>
+          <option value="Начальный" {{if eq $lvl "Начальный"}}selected{{end}}>Начальный</option>
+          <option value="Средний" {{if eq $lvl "Средний"}}selected{{end}}>Средний</option>
+          <option value="Продвинутый" {{if eq $lvl "Продвинутый"}}selected{{end}}>Продвинутый</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Статус (персон.)</label>
+        <select class="form-select" id="fStatus" name="status">
+          {{ $st := index .Filter "status" }}
+          <option value="">—</option>
+          <option value="Запланирована" {{if eq $st "Запланирована"}}selected{{end}}>Запланирована</option>
+          <option value="Завершена" {{if eq $st "Завершена"}}selected{{end}}>Завершена</option>
+          <option value="Отменена" {{if eq $st "Отменена"}}selected{{end}}>Отменена</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">С</label>
+        <input type="datetime-local" class="form-control" id="fFrom" name="from" value="{{index .Filter "from"}}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">По</label>
+        <input type="datetime-local" class="form-control" id="fTo" name="to" value="{{index .Filter "to"}}">
+      </div>
+    </div>
+
+    <div class="row mt-3">
+      <div class="col-md-6">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="fUpcoming" name="upcoming" value="1" {{if index .Filter "upcoming"}}checked{{end}}>
+          <label class="form-check-label" for="fUpcoming">⏭ Только будущие</label>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="fRecent" name="recent" value="1" {{if index .Filter "recent"}}checked{{end}}>
+          <label class="form-check-label" for="fRecent">🆕 За последние 30 дней</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-3 d-flex gap-2">
+      <button class="btn btn-outline-primary btn-sm" id="applyTrFiltersBtn" type="submit"
+              onclick="window._applyTrFilters && window._applyTrFilters();">
+        ✅ Применить
+      </button>
+      <a class="btn btn-outline-secondary btn-sm" href="/trainings">🗑️ Сбросить</a>
+      <span class="badge bg-info ms-2">
+        {{if index .Filter "q"}}Поиск: «{{index .Filter "q"}}»; {{end}}
+        {{if index .Filter "trainer_id"}}Тренер={{index .Filter "trainer_id"}}; {{end}}
+        {{if index .Filter "zone_id"}}Зона={{index .Filter "zone_id"}}; {{end}}
+        {{if index .Filter "level"}}Уровень={{index .Filter "level"}}; {{end}}
+        {{if index .Filter "status"}}Статус={{index .Filter "status"}}; {{end}}
+        {{if index .Filter "from"}}С={{index .Filter "from"}}; {{end}}
+        {{if index .Filter "to"}}По={{index .Filter "to"}}; {{end}}
+        {{if index .Filter "upcoming"}}Только будущие; {{end}}
+        {{if index .Filter "recent"}}За 30 дней; {{end}}
+      </span>
+    </div>
+  </div>
+</form>
 
 <!-- Групповые -->
 <div class="card mb-4">
@@ -79,6 +178,7 @@
     {{end}}
   </div>
 </div>
+
 
 <!-- Модалка: добавить групповую -->
 <div class="modal fade" id="addGroupModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
@@ -228,3 +328,4 @@
     </div>
   </form>
 </div></div></div>
+

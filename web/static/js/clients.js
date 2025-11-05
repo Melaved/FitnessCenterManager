@@ -132,3 +132,64 @@ function showNoResultsMessage(show){
     const tableCard=document.querySelector('.card'); tableCard.parentNode.insertBefore(msg, tableCard.nextSibling);
   }else if(!show && msg){ msg.remove(); }
 }
+
+function buildUrlWithParams(basePath, params) {
+  const u = new URL(location.origin + basePath);
+  Object.entries(params).forEach(([k, v]) => {
+    if (v === undefined || v === null || v === '') return;
+    u.searchParams.set(k, v);
+  });
+  const qs = u.searchParams.toString();
+  return u.pathname + (qs ? '?' + qs : '');
+}
+
+function applyClientFilters() {
+  const params = {
+    q: document.querySelector('#clientsSearchForm input[name="q"]')?.value?.trim() || '',
+    medical: document.getElementById('filterMedicalData')?.checked ? '1' : '',
+    recent: document.getElementById('filterRecentClients')?.checked ? '1' : '',
+  };
+  location.assign(buildUrlWithParams('/clients', params));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const applyBtn = document.getElementById('applyClientsFiltersBtn');
+  if (applyBtn) {
+    applyBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      applyClientFilters();
+    });
+  }
+
+  // автоматическое применение по чекбоксам
+  ['filterMedicalData','filterRecentClients'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', applyClientFilters);
+  });
+
+  // при сабмите поисковой формы — переносим чекбоксы в hidden
+  const form = document.getElementById('clientsSearchForm');
+  if (form) {
+    form.addEventListener('submit', () => {
+      const map = {
+        medical: document.getElementById('filterMedicalData')?.checked ? '1' : '',
+        recent: document.getElementById('filterRecentClients')?.checked ? '1' : '',
+      };
+      Object.entries(map).forEach(([k, v]) => {
+        const input = form.querySelector(`input[name="${k}"]`);
+        if (input) input.value = v;
+      });
+    });
+  }
+
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+  currentFilters = {
+    medicalData: !!document.getElementById('filterMedicalData')?.checked,
+    recentClients: !!document.getElementById('filterRecentClients')?.checked
+  };
+  updateFilterStatus();
+  initializeEditButtons();
+  initializeDeleteButtons();
+});

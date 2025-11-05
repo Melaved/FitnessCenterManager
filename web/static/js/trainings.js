@@ -1,7 +1,10 @@
+// /static/js/trainings.js
+
+// ---------- утилиты ----------
 async function parseJsonOrThrow(resp) {
   const ct = (resp.headers.get('content-type') || '').toLowerCase();
   if (ct.includes('application/json')) return resp.json();
-  throw new Error(await resp.text() || 'Сервер вернул не-JSON');
+  throw new Error((await resp.text()) || 'Сервер вернул не-JSON');
 }
 async function fill(url, select, key) {
   try {
@@ -11,17 +14,49 @@ async function fill(url, select, key) {
     select.innerHTML = '<option value="">Выберите...</option>';
     arr.forEach(x => {
       const opt = document.createElement('option');
-      opt.value = x.id || x.ID;
-      opt.textContent = x.name || x.Name || x.label || x.Label;
+      opt.value = x.id ?? x.ID;
+      opt.textContent = x.name ?? x.Name ?? x.label ?? x.Label ?? String(opt.value);
       select.appendChild(opt);
     });
   } catch (e) {
-    console.error(url, e); select.innerHTML = '<option value="">Ошибка загрузки</option>';
+    console.error('[fill]', url, e);
+    select.innerHTML = '<option value="">Ошибка загрузки</option>';
   }
 }
 
+function buildUrlWithParams(basePath, params) {
+  const u = new URL(location.origin + basePath);
+  Object.entries(params).forEach(([k, v]) => {
+    if (v === undefined || v === null || v === '') return;
+    u.searchParams.set(k, v);
+  });
+  const qs = u.searchParams.toString();
+  return u.pathname + (qs ? '?' + qs : '');
+}
+
+function applyFilters() {
+  const params = {
+    q: document.querySelector('#trSearchForm input[name="q"]')?.value?.trim(),
+    trainer_id: document.getElementById('fTrainer')?.value?.trim(),
+    zone_id: document.getElementById('fZone')?.value?.trim(),
+    level: document.getElementById('fLevel')?.value,
+    status: document.getElementById('fStatus')?.value,
+    from: document.getElementById('fFrom')?.value,
+    to: document.getElementById('fTo')?.value,
+    upcoming: document.getElementById('fUpcoming')?.checked ? '1' : '',
+    recent: document.getElementById('fRecent')?.checked ? '1' : '',
+  };
+  const next = buildUrlWithParams('/trainings', params);
+  // надёжнее, чем заменять текущий href (меньше конфликтов с формами)
+  location.assign(next);
+}
+
+// делаем доступным из HTML-атрибута onclick на кнопке
+window._applyTrFilters = applyFilters;
+
+// ---------- инициализация ----------
 document.addEventListener('DOMContentLoaded', () => {
-  // ===== Групповая: добавление =====
+  // ===== Групповые: добавление =====
   const addGroupModal = document.getElementById('addGroupModal');
   if (addGroupModal) {
     addGroupModal.addEventListener('show.bs.modal', async () => {
@@ -30,18 +65,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('addGroupForm')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const btn = e.target.querySelector('button[type="submit"]'); btn.disabled = true; btn.textContent = '⌛...';
+      const btn = e.submitter ?? e.target.querySelector('button[type="submit"]');
+      if (btn) { btn.disabled = true; btn.textContent = '⌛...'; }
       try {
         const resp = await fetch('/group-trainings', { method: 'POST', body: new FormData(e.target) });
         const data = await parseJsonOrThrow(resp);
-        if (data.success) { bootstrap.Modal.getInstance(addGroupModal).hide(); location.reload(); }
+        if (data.success) { bootstrap.Modal.getInstance(addGroupModal)?.hide(); location.reload(); }
         else alert('❌ ' + (data.error || 'Ошибка'));
       } catch (er) { alert('❌ ' + er.message); }
-      finally { btn.disabled = false; btn.textContent = 'Сохранить'; }
+      finally { if (btn) { btn.disabled = false; btn.textContent = 'Сохранить'; } }
     });
   }
 
-  // ===== Групповая: редактирование =====
+  // ===== Групповые: редактирование =====
   document.querySelectorAll('.edit-group-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-id');
@@ -69,17 +105,18 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('editGroupForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const id  = document.getElementById('editGroupId').value;
-    const btn = e.target.querySelector('button[type="submit"]'); btn.disabled = true; btn.textContent = '⌛...';
+    const btn = e.submitter ?? e.target.querySelector('button[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = '⌛...'; }
     try {
       const body = new URLSearchParams(new FormData(e.target));
       const data = await parseJsonOrThrow(await fetch(`/group-trainings/${id}`, { method:'PUT', body }));
-      if (data.success) { bootstrap.Modal.getInstance(document.getElementById('editGroupModal')).hide(); location.reload(); }
+      if (data.success) { bootstrap.Modal.getInstance(document.getElementById('editGroupModal'))?.hide(); location.reload(); }
       else alert('❌ ' + (data.error || 'Ошибка'));
     } catch (e2) { alert('❌ ' + e2.message); }
-    finally { btn.disabled = false; btn.textContent = 'Сохранить'; }
+    finally { if (btn) { btn.disabled = false; btn.textContent = 'Сохранить'; } }
   });
 
-  // ===== Групповая: удаление =====
+  // ===== Групповые: удаление =====
   document.querySelectorAll('.delete-group-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!confirm('Удалить групповую тренировку?')) return;
@@ -100,18 +137,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('addPersonalForm')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const btn = e.target.querySelector('button[type="submit"]'); btn.disabled = true; btn.textContent = '⌛...';
+      const btn = e.submitter ?? e.target.querySelector('button[type="submit"]');
+      if (btn) { btn.disabled = true; btn.textContent = '⌛...'; }
       try {
         const resp = await fetch('/personal-trainings', { method: 'POST', body: new FormData(e.target) });
         const data = await parseJsonOrThrow(resp);
-        if (data.success) { bootstrap.Modal.getInstance(addPersonalModal).hide(); location.reload(); }
+        if (data.success) { bootstrap.Modal.getInstance(addPersonalModal)?.hide(); location.reload(); }
         else alert('❌ ' + (data.error || 'Ошибка'));
       } catch (er) { alert('❌ ' + er.message); }
-      finally { btn.disabled = false; btn.textContent = 'Сохранить'; }
+      finally { if (btn) { btn.disabled = false; btn.textContent = 'Сохранить'; } }
     });
   }
 
-  // ===== Персональная: редактирование =====
+  // ===== Персональная: редактирование/удаление =====
   document.querySelectorAll('.edit-personal-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-id');
@@ -137,17 +175,16 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('editPersonalForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const id  = document.getElementById('epId').value;
-    const btn = e.target.querySelector('button[type="submit"]'); btn.disabled = true; btn.textContent = '⌛...';
+    const btn = e.submitter ?? e.target.querySelector('button[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = '⌛...'; }
     try {
       const body = new URLSearchParams(new FormData(e.target));
       const data = await parseJsonOrThrow(await fetch(`/personal-trainings/${id}`, { method:'PUT', body }));
-      if (data.success) { bootstrap.Modal.getInstance(document.getElementById('editPersonalModal')).hide(); location.reload(); }
+      if (data.success) { bootstrap.Modal.getInstance(document.getElementById('editPersonalModal'))?.hide(); location.reload(); }
       else alert('❌ ' + (data.error || 'Ошибка'));
     } catch (e2) { alert('❌ ' + e2.message); }
-    finally { btn.disabled = false; btn.textContent = 'Сохранить'; }
+    finally { if (btn) { btn.disabled = false; btn.textContent = 'Сохранить'; } }
   });
-
-  // ===== Персональная: удаление =====
   document.querySelectorAll('.delete-personal-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!confirm('Удалить персональную тренировку?')) return;
@@ -162,20 +199,66 @@ document.addEventListener('DOMContentLoaded', () => {
   // ===== Запись на групповую =====
   document.querySelectorAll('.enroll-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
-      document.getElementById('enGroupId').value   = btn.getAttribute('data-id');
-      document.getElementById('enGroupTitle').value= btn.getAttribute('data-title') || '';
+      document.getElementById('enGroupId').value    = btn.getAttribute('data-id');
+      document.getElementById('enGroupTitle').value = btn.getAttribute('data-title') || '';
       await fill('/api/subscriptions-for-select', document.getElementById('enSub'), 'subscriptions');
       new bootstrap.Modal(document.getElementById('enrollModal')).show();
     });
   });
   document.getElementById('enrollForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const btn = e.target.querySelector('button[type="submit"]'); btn.disabled = true; btn.textContent = '⌛...';
+    const btn = e.submitter ?? e.target.querySelector('button[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = '⌛...'; }
     try {
       const data = await parseJsonOrThrow(await fetch('/group-enrollments', { method:'POST', body: new FormData(e.target) }));
-      if (data.success) { bootstrap.Modal.getInstance(document.getElementById('enrollModal')).hide(); location.reload(); }
+      if (data.success) { bootstrap.Modal.getInstance(document.getElementById('enrollModal'))?.hide(); location.reload(); }
       else alert('❌ ' + (data.error || 'Ошибка'));
     } catch (e2) { alert('❌ ' + e2.message); }
-    finally { btn.disabled = false; btn.textContent = 'Создать запись'; }
+    finally { if (btn) { btn.disabled = false; btn.textContent = 'Создать запись'; } }
   });
+
+  // ===== Фильтры =====
+  const applyBtn = document.getElementById('applyTrFiltersBtn');
+  if (applyBtn) {
+    // на случай, если HTML-атрибут уберут — всё равно навесим слушатель
+    applyBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      applyFilters();
+    });
+  }
+
+  // автоприменение селекты/чекбоксы
+  ['fLevel','fStatus','fUpcoming','fRecent'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', applyFilters);
+  });
+
+  // Enter в полях trainer/zone
+  ['fTrainer','fZone'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); applyFilters(); }
+    });
+  });
+
+  // перенос состояния фильтров в hidden при поиске
+  const searchForm = document.getElementById('trSearchForm');
+  if (searchForm) {
+    searchForm.addEventListener('submit', () => {
+      const map = {
+        trainer_id: document.getElementById('fTrainer')?.value?.trim() || '',
+        zone_id: document.getElementById('fZone')?.value?.trim() || '',
+        level: document.getElementById('fLevel')?.value || '',
+        status: document.getElementById('fStatus')?.value || '',
+        from: document.getElementById('fFrom')?.value || '',
+        to: document.getElementById('fTo')?.value || '',
+        upcoming: document.getElementById('fUpcoming')?.checked ? '1' : '',
+        recent: document.getElementById('fRecent')?.checked ? '1' : '',
+      };
+      Object.entries(map).forEach(([k, v]) => {
+        const input = searchForm.querySelector(`input[name="${k}"]`);
+        if (input) input.value = v;
+      });
+    });
+  }
 });
