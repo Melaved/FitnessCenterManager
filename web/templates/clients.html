@@ -49,10 +49,19 @@
   <div class="card-body">
     {{if .Clients}}
     <div class="table-responsive">
-      <table class="table table-striped table-hover">
+      <table class="table table-striped table-hover align-middle">
         <thead class="table-dark">
           <tr>
-            <th>ID</th><th>ФИО</th><th>Телефон</th><th>Дата рождения</th><th>Дата регистрации</th><th>Мед. данные</th><th>Действия</th>
+            <th>ID</th>
+            <th>ФИО</th>
+            <th>Телефон</th>
+            <th>Возраст</th>              <!-- NEW -->
+            <th>Абонементы</th>           <!-- NEW -->
+            <th>Активный</th>             <!-- NEW -->
+            <th>Дата рождения</th>
+            <th>Дата регистрации</th>
+            <th>Мед. данные</th>
+            <th>Действия</th>
           </tr>
         </thead>
         <tbody>
@@ -61,6 +70,15 @@
             <td>{{.ID}}</td>
             <td>{{.FIO}}</td>
             <td>{{.Phone}}</td>
+            <td>{{.Age}}</td>
+            <td>{{.SubscriptionsCnt}}</td>
+            <td>
+              {{if eq .ActiveStatus "Активен"}}
+                <span class="badge bg-success">Активен</span>
+              {{else}}
+                <span class="badge bg-secondary">Нет</span>
+              {{end}}
+            </td>
             <td>{{.BirthDate.Format "02.01.2006"}}</td>
             <td>{{.RegisterDate.Format "02.01.2006"}}</td>
             <td>
@@ -68,7 +86,7 @@
                 {{if ne .MedicalData.String ""}}<span class="badge bg-info">Есть</span>{{else}}<span class="badge bg-secondary">Нет</span>{{end}}
               {{else}}<span class="badge bg-secondary">Нет</span>{{end}}
             </td>
-            <td>
+            <td class="text-nowrap">
               <button class="btn btn-sm btn-outline-primary edit-client-btn" data-client-id="{{.ID}}" title="Редактировать клиента">✏️</button>
               <button class="btn btn-sm btn-outline-danger delete-client-btn" data-client-id="{{.ID}}" data-client-name="{{.FIO}}" title="Удалить клиента">🗑️</button>
             </td>
@@ -82,8 +100,6 @@
     {{end}}
   </div>
 </div>
-
-
 
 <!-- Модалка: добавить -->
 <div class="modal fade" id="addClientModal" tabindex="-1" aria-hidden="true">

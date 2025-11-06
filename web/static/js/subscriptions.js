@@ -4,103 +4,68 @@ async function parseJsonOrThrow(response){
   const text=await response.text(); throw new Error(text.slice(0,300)||'Сервер вернул не-JSON');
 }
 
-document.addEventListener('DOMContentLoaded', ()=>{
-  // заполнение селектов при открытии модалки "добавить"
-  document.getElementById('addSubscriptionModal')?.addEventListener('show.bs.modal', async ()=>{
-    await fillClients('clientSelect');
-    await fillTariffs('tariffSelect');
-  });
+// === делегирование клика на кнопку "👥 Записанные" ===
+document.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('.list-enroll-btn');
+  if (!btn) return;
 
-  // создать
-  document.getElementById('addSubscriptionForm')?.addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    const form=e.currentTarget, btn=form.querySelector('button[type="submit"]');
-    btn.disabled=true; btn.innerHTML='⌛ Сохранение...';
-    try{
-      const resp=await fetch('/subscriptions',{method:'POST', body:new FormData(form)});
-      const res=await parseJsonOrThrow(resp);
-      if(res.success){
-        alert('✅ '+(res.message||'Создано'));
-        bootstrap.Modal.getInstance(document.getElementById('addSubscriptionModal')).hide();
-        form.reset();
-        location.reload();
-      }else{
-        alert('❌ '+(res.error||'Не удалось создать'));
-      }
-    }catch(e2){ alert('❌ '+e2.message) }
-    finally{ btn.disabled=false; btn.innerHTML='Сохранить'; }
-  });
+  const groupId = btn.getAttribute('data-id');
+  const title   = btn.getAttribute('data-title') || '';
 
-  // кн. Редактировать
-  document.querySelectorAll('.edit-sub-btn').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      const id=btn.getAttribute('data-sub-id');
-      try{
-        // тянем одну запись
-        const resp=await fetch(`/subscriptions/${id}`);
-        const res=await parseJsonOrThrow(resp);
-        if(!res.success) throw new Error(res.error||'Не удалось получить абонемент');
-        const s=res.subscription;
+  const modalEl = document.getElementById('enrollListModal');
+  const titleEl = document.getElementById('enrollListTitle');
+  const boxEl   = document.getElementById('enrollListContainer');
 
-        // заполняем селекты (после загрузки — выставляем выбранные)
-        await fillClients('editClientSelect', s.client_id||s.ClientID);
-        await fillTariffs('editTariffSelect', s.tariff_id||s.TariffID);
+  if (!modalEl || !titleEl || !boxEl) {
+    console.error('[enroll-list] Не найдены элементы модалки');
+    return;
+  }
 
-        // даты приводим к YYYY-MM-DD
-        const toYMD = (v)=>{
-          // v может быть "2025-11-04T00:00:00Z" — берём первые 10 символов
-          if(typeof v==='string' && v.length>=10) return v.substring(0,10);
-          const d=new Date(v); if(!isNaN(d)) return d.toISOString().substring(0,10);
-          return '';
-        };
+  titleEl.value = `#${groupId} — ${title}`;
+  boxEl.innerHTML = `<div class="text-muted">Загрузка...</div>`;
 
-        document.getElementById('editSubId').value = s.id || s.ID || id;
-        document.getElementById('editStartDate').value = toYMD(s.start_date||s.StartDate);
-        document.getElementById('editEndDate').value   = toYMD(s.end_date||s.EndDate);
-        document.getElementById('editStatus').value    = s.status || s.Status || 'Активен';
-        document.getElementById('editPrice').value     = (s.price ?? s.Price ?? '').toString();
+  try {
+    const resp = await fetch(`/api/group-trainings/${groupId}/enrollments`, { cache:'no-store' });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Ошибка загрузки');
 
-        new bootstrap.Modal(document.getElementById('editSubscriptionModal')).show();
-      }catch(e){ alert('❌ '+e.message); }
-    });
-  });
+    const list = data.enrollments || [];
+    if (list.length === 0) {
+      boxEl.innerHTML = `<div class="alert alert-info mb-0">Пока никто не записан.</div>`;
+    } else {
+      const rows = list.map((e, i) => `
+        <tr>
+          <td>${i+1}</td>
+          <td>${e.client_fio} <span class="text-muted">(#${e.client_id})</span></td>
+          <td>#${e.subscription_id}</td>
+          <td>
+            <span class="badge ${
+              e.status === 'Посетил' ? 'bg-success' :
+              e.status === 'Отменил' ? 'bg-secondary' : 'bg-primary'
+            }">${e.status}</span>
+          </td>
+          <td class="text-muted">id: ${e.id}</td>
+        </tr>
+      `).join('');
 
-  // submit: обновить
-  document.getElementById('editSubscriptionForm')?.addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    const form=e.currentTarget, btn=form.querySelector('button[type="submit"]');
-    const id=document.getElementById('editSubId').value;
-    btn.disabled=true; btn.innerHTML='⌛ Обновление...';
-    try{
-      const body = new URLSearchParams(new FormData(form));
-      const resp = await fetch(`/subscriptions/${id}`, { method:'PUT', body });
-      const res  = await parseJsonOrThrow(resp);
-      if(res.success){
-        alert('✅ '+(res.message||'Обновлено'));
-        bootstrap.Modal.getInstance(document.getElementById('editSubscriptionModal')).hide();
-        location.reload();
-      }else{
-        alert('❌ '+(res.error||'Не удалось обновить'));
-      }
-    }catch(e2){ alert('❌ '+e2.message); }
-    finally{ btn.disabled=false; btn.innerHTML='Обновить'; }
-  });
+      boxEl.innerHTML = `
+        <div class="table-responsive">
+          <table class="table table-striped table-hover align-middle">
+            <thead class="table-dark">
+              <tr><th>#</th><th>Клиент</th><th>Абонемент</th><th>Статус</th><th>Запись</th></tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    }
+  } catch (e) {
+    boxEl.innerHTML = `<div class="alert alert-danger">❌ ${e.message}</div>`;
+  }
 
-  // кн. Удалить
-  document.querySelectorAll('.delete-sub-btn').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      const id=btn.getAttribute('data-sub-id');
-      const name=btn.getAttribute('data-client-name')||'абонемент';
-      if(!confirm(`Удалить ${name}?`)) return;
-      try{
-        const resp=await fetch(`/subscriptions/${id}`, { method:'DELETE' });
-        const res=await parseJsonOrThrow(resp);
-        if(res.success){ alert('✅ '+(res.message||'Удалено')); location.reload(); }
-        else{ alert('❌ '+(res.error||'Не удалось удалить')); }
-      }catch(e){ alert('❌ '+e.message); }
-    });
-  });
+  new bootstrap.Modal(modalEl).show();
 });
+
 
 async function fillClients(selectId, selectedId){
   try{

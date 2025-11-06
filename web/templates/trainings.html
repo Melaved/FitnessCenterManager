@@ -4,13 +4,15 @@
   <h1>📅 {{.Title}}</h1>
   <div class="btn-group">
     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addGroupModal">➕ Групповая</button>
-    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addPersonalModal">➕ Персональная</button>
+    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addPersonalModal">➕
+      Персональная</button>
   </div>
 </div>
 
-<!-- Поиск (как на clients) -->
-<form id="trSearchForm" class="input-group mb-3" method="get">
-  <input type="search" class="form-control" name="q" placeholder="Поиск: название, тренер/зона (групп.), клиент/тренер (персон.)" value="{{index .Filter "q"}}">
+<!-- Поиск -->
+<form id="trSearchForm" class="input-group mb-3" method="get" action="/trainings">
+  <input type="search" class="form-control" name="q"
+    placeholder="Поиск: название, тренер/зона (групп.), клиент/тренер (персон.)" value="{{index .Filter " q"}}">
 
   <!-- скрытые поля, чтобы поиск не сбрасывал остальные фильтры -->
   <input type="hidden" name="trainer_id" value="{{index .Filter "trainer_id"}}">
@@ -19,34 +21,38 @@
   <input type="hidden" name="status" value="{{index .Filter "status"}}">
   <input type="hidden" name="from" value="{{index .Filter "from"}}">
   <input type="hidden" name="to" value="{{index .Filter "to"}}">
-  <input type="hidden" name="upcoming" value="{{if index .Filter "upcoming"}}1{{end}}">
-  <input type="hidden" name="recent" value="{{if index .Filter "recent"}}1{{end}}">
+  <input type="hidden" name="upcoming" value="{{if index .Filter " upcoming"}}1{{end}}">
+  <input type="hidden" name="recent" value="{{if index .Filter " recent"}}1{{end}}">
 
-  <button class="btn btn-outline-primary">Найти</button>
+  <button class="btn btn-outline-primary" type="submit">Найти</button>
   {{if index .Filter "q"}}<a class="btn btn-outline-secondary" href="/trainings">Сброс</a>{{end}}
 </form>
 
 <!-- Фильтры -->
 <form id="trFiltersForm" class="card mb-4" method="get" action="/trainings">
-  <div class="card-header"><h5 class="card-title mb-0">🔍 Фильтры</h5></div>
+  <div class="card-header">
+    <h5 class="card-title mb-0">🔍 Фильтры</h5>
+  </div>
   <div class="card-body">
     <div class="row g-3 align-items-end">
       <div class="col-md-2">
         <label class="form-label">ID тренера</label>
-        <input class="form-control" id="fTrainer" name="trainer_id" value="{{index .Filter "trainer_id"}}" placeholder="например, 3">
+        <input class="form-control" id="fTrainer" name="trainer_id" value="{{index .Filter " trainer_id"}}"
+          placeholder="например, 3">
       </div>
       <div class="col-md-2">
         <label class="form-label">ID зоны (групп.)</label>
-        <input class="form-control" id="fZone" name="zone_id" value="{{index .Filter "zone_id"}}" placeholder="например, 2">
+        <input class="form-control" id="fZone" name="zone_id" value="{{index .Filter " zone_id"}}"
+          placeholder="например, 2">
       </div>
       <div class="col-md-2">
         <label class="form-label">Уровень (групп.)</label>
         <select class="form-select" id="fLevel" name="level">
           {{ $lvl := index .Filter "level" }}
           <option value="">—</option>
-          <option value="Начальный" {{if eq $lvl "Начальный"}}selected{{end}}>Начальный</option>
-          <option value="Средний" {{if eq $lvl "Средний"}}selected{{end}}>Средний</option>
-          <option value="Продвинутый" {{if eq $lvl "Продвинутый"}}selected{{end}}>Продвинутый</option>
+          <option value="Начальный" {{if eq $lvl "Начальный" }}selected{{end}}>Начальный</option>
+          <option value="Средний" {{if eq $lvl "Средний" }}selected{{end}}>Средний</option>
+          <option value="Продвинутый" {{if eq $lvl "Продвинутый" }}selected{{end}}>Продвинутый</option>
         </select>
       </div>
       <div class="col-md-2">
@@ -54,39 +60,40 @@
         <select class="form-select" id="fStatus" name="status">
           {{ $st := index .Filter "status" }}
           <option value="">—</option>
-          <option value="Запланирована" {{if eq $st "Запланирована"}}selected{{end}}>Запланирована</option>
-          <option value="Завершена" {{if eq $st "Завершена"}}selected{{end}}>Завершена</option>
-          <option value="Отменена" {{if eq $st "Отменена"}}selected{{end}}>Отменена</option>
+          <option value="Запланирована" {{if eq $st "Запланирована" }}selected{{end}}>Запланирована</option>
+          <option value="Завершена" {{if eq $st "Завершена" }}selected{{end}}>Завершена</option>
+          <option value="Отменена" {{if eq $st "Отменена" }}selected{{end}}>Отменена</option>
         </select>
       </div>
       <div class="col-md-2">
         <label class="form-label">С</label>
-        <input type="datetime-local" class="form-control" id="fFrom" name="from" value="{{index .Filter "from"}}">
+        <input type="datetime-local" class="form-control" id="fFrom" name="from" value="{{index .Filter " from"}}">
       </div>
       <div class="col-md-2">
         <label class="form-label">По</label>
-        <input type="datetime-local" class="form-control" id="fTo" name="to" value="{{index .Filter "to"}}">
+        <input type="datetime-local" class="form-control" id="fTo" name="to" value="{{index .Filter " to"}}">
       </div>
     </div>
 
     <div class="row mt-3">
       <div class="col-md-6">
         <div class="form-check">
-          <input class="form-check-input" type="checkbox" id="fUpcoming" name="upcoming" value="1" {{if index .Filter "upcoming"}}checked{{end}}>
+          <input class="form-check-input" type="checkbox" id="fUpcoming" name="upcoming" value="1" {{if index
+            .Filter "upcoming" }}checked{{end}}>
           <label class="form-check-label" for="fUpcoming">⏭ Только будущие</label>
         </div>
       </div>
       <div class="col-md-6">
         <div class="form-check">
-          <input class="form-check-input" type="checkbox" id="fRecent" name="recent" value="1" {{if index .Filter "recent"}}checked{{end}}>
+          <input class="form-check-input" type="checkbox" id="fRecent" name="recent" value="1" {{if index
+            .Filter "recent" }}checked{{end}}>
           <label class="form-check-label" for="fRecent">🆕 За последние 30 дней</label>
         </div>
       </div>
     </div>
 
     <div class="mt-3 d-flex gap-2">
-      <button class="btn btn-outline-primary btn-sm" id="applyTrFiltersBtn" type="submit"
-              onclick="window._applyTrFilters && window._applyTrFilters();">
+      <button class="btn btn-outline-primary btn-sm" id="applyTrFiltersBtn" type="submit">
         ✅ Применить
       </button>
       <a class="btn btn-outline-secondary btn-sm" href="/trainings">🗑️ Сбросить</a>
@@ -107,13 +114,26 @@
 
 <!-- Групповые -->
 <div class="card mb-4">
-  <div class="card-header"><h5 class="mb-0">Групповые тренировки</h5></div>
+  <div class="card-header">
+    <h5 class="mb-0">Групповые тренировки</h5>
+  </div>
   <div class="card-body">
     {{if .Groups}}
     <div class="table-responsive">
       <table class="table table-striped table-hover align-middle">
         <thead class="table-dark">
-          <tr><th>ID</th><th>Название</th><th>Тренер</th><th>Зона</th><th>Начало</th><th>Окончание</th><th>Уровень</th><th>Макс</th><th>Действия</th></tr>
+          <tr>
+            <th>ID</th>
+            <th>Название</th>
+            <th>Тренер</th>
+            <th>Зона</th>
+            <th>Начало</th>
+            <th>Окончание</th>
+            <th>Уровень</th>
+            <th>Макс</th>
+            <th>Свободно</th>
+            <th>Действия</th>
+          </tr>
         </thead>
         <tbody>
           {{range .Groups}}
@@ -126,8 +146,24 @@
             <td>{{.End.Format "02.01.2006 15:04"}}</td>
             <td>{{.Level}}</td>
             <td>{{.Max}}</td>
+            <td>
+              {{/* вычисляемая колонка из вьюхи: FreeSlots */}}
+              <span class="badge 
+                {{- if le .FreeSlots 0 -}} bg-danger
+                {{- else if lt .FreeSlots 3 -}} bg-warning text-dark
+                {{- else -}} bg-success
+                {{- end -}}">
+                {{.FreeSlots}}
+              </span>
+            </td>
             <td class="text-nowrap">
-              <button class="btn btn-sm btn-outline-success enroll-btn" data-id="{{.ID}}" data-title="{{.Title}}">📝 Записать</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary list-enroll-btn" data-id="{{.ID}}"
+                data-title="{{.Title}}">
+                👥 Записанные
+              </button>
+
+              <button class="btn btn-sm btn-outline-success enroll-btn" data-id="{{.ID}}" data-title="{{.Title}}">📝
+                Записать</button>
               <button class="btn btn-sm btn-outline-primary edit-group-btn" data-id="{{.ID}}">✏️</button>
               <button class="btn btn-sm btn-outline-danger delete-group-btn" data-id="{{.ID}}">🗑️</button>
             </td>
@@ -137,20 +173,31 @@
       </table>
     </div>
     {{else}}
-      <div class="alert alert-info mb-0">Групповых тренировок нет.</div>
+    <div class="alert alert-info mb-0">Групповых тренировок нет.</div>
     {{end}}
   </div>
 </div>
 
 <!-- Персональные -->
 <div class="card mb-4">
-  <div class="card-header"><h5 class="mb-0">Персональные тренировки</h5></div>
+  <div class="card-header">
+    <h5 class="mb-0">Персональные тренировки</h5>
+  </div>
   <div class="card-body">
     {{if .Personal}}
     <div class="table-responsive">
       <table class="table table-striped table-hover align-middle">
         <thead class="table-dark">
-          <tr><th>ID</th><th>Клиент</th><th>Тренер</th><th>Начало</th><th>Окончание</th><th>Статус</th><th>Стоимость</th><th>Действия</th></tr>
+          <tr>
+            <th>ID</th>
+            <th>Клиент</th>
+            <th>Тренер</th>
+            <th>Начало</th>
+            <th>Окончание</th>
+            <th>Статус</th>
+            <th>Стоимость</th>
+            <th>Действия</th>
+          </tr>
         </thead>
         <tbody>
           {{range .Personal}}
@@ -161,7 +208,8 @@
             <td>{{.Start.Format "02.01.2006 15:04"}}</td>
             <td>{{.End.Format "02.01.2006 15:04"}}</td>
             <td>
-              <span class="badge {{if eq .Status "Запланирована"}}bg-primary{{else if eq .Status "Завершена"}}bg-success{{else}}bg-secondary{{end}}">{{.Status}}</span>
+              <span class="badge {{if eq .Status "Запланирована"}}bg-primary{{else if eq .Status "Завершена"
+                }}bg-success{{else}}bg-secondary{{end}}">{{.Status}}</span>
             </td>
             <td>{{printf "%.2f" .Price}}</td>
             <td class="text-nowrap">
@@ -174,158 +222,258 @@
       </table>
     </div>
     {{else}}
-      <div class="alert alert-info mb-0">Персональных тренировок нет.</div>
+    <div class="alert alert-info mb-0">Персональных тренировок нет.</div>
     {{end}}
   </div>
 </div>
 
-
 <!-- Модалка: добавить групповую -->
-<div class="modal fade" id="addGroupModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
-  <div class="modal-header"><h5 class="modal-title">Новая групповая</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-  <form id="addGroupForm">
-    <div class="modal-body">
-      <div class="mb-2"><label class="form-label">Название *</label><input class="form-control" name="title" required></div>
-      <div class="mb-2"><label class="form-label">Описание</label><textarea class="form-control" name="description" rows="2"></textarea></div>
-      <div class="row g-3">
-        <div class="col-md-4"><label class="form-label">Макс. участников *</label><input type="number" class="form-control" name="max" min="1" value="10" required></div>
-        <div class="col-md-4"><label class="form-label">Уровень</label>
-          <select class="form-select" name="level">
-            <option value="">—</option>
-            <option value="Начальный">Начальный</option>
-            <option value="Средний">Средний</option>
-            <option value="Продвинутый">Продвинутый</option>
-          </select>
+<div class="modal fade" id="addGroupModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Новая групповая</h5><button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="addGroupForm">
+        <div class="modal-body">
+          <div class="mb-2"><label class="form-label">Название *</label><input class="form-control" name="title"
+              required></div>
+          <div class="mb-2"><label class="form-label">Описание</label><textarea class="form-control" name="description"
+              rows="2"></textarea></div>
+          <div class="row g-3">
+            <div class="col-md-4"><label class="form-label">Макс. участников *</label><input type="number"
+                class="form-control" name="max" min="1" value="10" required></div>
+            <div class="col-md-4"><label class="form-label">Уровень</label>
+              <select class="form-select" name="level">
+                <option value="">—</option>
+                <option value="Начальный">Начальный</option>
+                <option value="Средний">Средний</option>
+                <option value="Продвинутый">Продвинутый</option>
+              </select>
+            </div>
+            <div class="col-md-4"><label class="form-label">Дата *</label><input type="date" class="form-control"
+                name="date" required></div>
+          </div>
+          <div class="row g-3 mt-1">
+            <div class="col-md-3"><label class="form-label">Начало *</label><input type="time" class="form-control"
+                name="start_time" required></div>
+            <div class="col-md-3"><label class="form-label">Окончание *</label><input type="time" class="form-control"
+                name="end_time" required></div>
+            <div class="col-md-3"><label class="form-label">Тренер *</label><select class="form-select" id="grpTrainer"
+                name="trainer_id" required>
+                <option value="">Загрузка...</option>
+              </select></div>
+            <div class="col-md-3"><label class="form-label">Зона *</label><select class="form-select" id="grpZone"
+                name="zone_id" required>
+                <option value="">Загрузка...</option>
+              </select></div>
+          </div>
         </div>
-        <div class="col-md-4"><label class="form-label">Дата *</label><input type="date" class="form-control" name="date" required></div>
-      </div>
-      <div class="row g-3 mt-1">
-        <div class="col-md-3"><label class="form-label">Начало *</label><input type="time" class="form-control" name="start_time" required></div>
-        <div class="col-md-3"><label class="form-label">Окончание *</label><input type="time" class="form-control" name="end_time" required></div>
-        <div class="col-md-3"><label class="form-label">Тренер *</label><select class="form-select" id="grpTrainer" name="trainer_id" required><option value="">Загрузка...</option></select></div>
-        <div class="col-md-3"><label class="form-label">Зона *</label><select class="form-select" id="grpZone" name="zone_id" required><option value="">Загрузка...</option></select></div>
-      </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Отмена</button>
+          <button class="btn btn-primary" type="submit">Сохранить</button>
+        </div>
+      </form>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Отмена</button>
-      <button class="btn btn-primary" type="submit">Сохранить</button>
-    </div>
-  </form>
-</div></div></div>
+  </div>
+</div>
 
 <!-- Модалка: редактировать групповую -->
-<div class="modal fade" id="editGroupModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
-  <div class="modal-header"><h5 class="modal-title">Редактировать групповую</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-  <form id="editGroupForm">
-    <div class="modal-body">
-      <input type="hidden" id="editGroupId" name="id">
-      <div class="mb-2"><label class="form-label">Название *</label><input class="form-control" id="egTitle" name="title" required></div>
-      <div class="mb-2"><label class="form-label">Описание</label><textarea class="form-control" id="egDesc" name="description" rows="2"></textarea></div>
-      <div class="row g-3">
-        <div class="col-md-4"><label class="form-label">Макс. участников *</label><input type="number" class="form-control" id="egMax" name="max" min="1" required></div>
-        <div class="col-md-4"><label class="form-label">Уровень</label>
-          <select class="form-select" id="egLevel" name="level">
-            <option value="">—</option><option value="Начальный">Начальный</option><option value="Средний">Средний</option><option value="Продвинутый">Продвинутый</option>
-          </select>
+<div class="modal fade" id="editGroupModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Редактировать групповую</h5><button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="editGroupForm">
+        <div class="modal-body">
+          <input type="hidden" id="editGroupId" name="id">
+          <div class="mb-2"><label class="form-label">Название *</label><input class="form-control" id="egTitle"
+              name="title" required></div>
+          <div class="mb-2"><label class="form-label">Описание</label><textarea class="form-control" id="egDesc"
+              name="description" rows="2"></textarea></div>
+          <div class="row g-3">
+            <div class="col-md-4"><label class="form-label">Макс. участников *</label><input type="number"
+                class="form-control" id="egMax" name="max" min="1" required></div>
+            <div class="col-md-4"><label class="form-label">Уровень</label>
+              <select class="form-select" id="egLevel" name="level">
+                <option value="">—</option>
+                <option value="Начальный">Начальный</option>
+                <option value="Средний">Средний</option>
+                <option value="Продвинутый">Продвинутый</option>
+              </select>
+            </div>
+            <div class="col-md-4"><label class="form-label">Дата *</label><input type="date" class="form-control"
+                id="egDate" name="date" required></div>
+          </div>
+          <div class="row g-3 mt-1">
+            <div class="col-md-3"><label class="form-label">Начало *</label><input type="time" class="form-control"
+                id="egStart" name="start_time" required></div>
+            <div class="col-md-3"><label class="form-label">Окончание *</label><input type="time" class="form-control"
+                id="egEnd" name="end_time" required></div>
+            <div class="col-md-3"><label class="form-label">Тренер *</label><select class="form-select" id="egTrainer"
+                name="trainer_id" required>
+                <option value="">Загрузка...</option>
+              </select></div>
+            <div class="col-md-3"><label class="form-label">Зона *</label><select class="form-select" id="egZone"
+                name="zone_id" required>
+                <option value="">Загрузка...</option>
+              </select></div>
+          </div>
         </div>
-        <div class="col-md-4"><label class="form-label">Дата *</label><input type="date" class="form-control" id="egDate" name="date" required></div>
-      </div>
-      <div class="row g-3 mt-1">
-        <div class="col-md-3"><label class="form-label">Начало *</label><input type="time" class="form-control" id="egStart" name="start_time" required></div>
-        <div class="col-md-3"><label class="form-label">Окончание *</label><input type="time" class="form-control" id="egEnd" name="end_time" required></div>
-        <div class="col-md-3"><label class="form-label">Тренер *</label><select class="form-select" id="egTrainer" name="trainer_id" required><option value="">Загрузка...</option></select></div>
-        <div class="col-md-3"><label class="form-label">Зона *</label><select class="form-select" id="egZone" name="zone_id" required><option value="">Загрузка...</option></select></div>
-      </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Отмена</button>
+          <button class="btn btn-primary" type="submit">Сохранить</button>
+        </div>
+      </form>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Отмена</button>
-      <button class="btn btn-primary" type="submit">Сохранить</button>
-    </div>
-  </form>
-</div></div></div>
+  </div>
+</div>
 
 <!-- Модалка: добавить персональную -->
-<div class="modal fade" id="addPersonalModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
-  <div class="modal-header"><h5 class="modal-title">Новая персональная</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-  <form id="addPersonalForm">
-    <div class="modal-body">
-      <div class="row g-3">
-        <div class="col-md-4"><label class="form-label">Абонемент *</label><select class="form-select" id="perSub" name="subscription_id" required><option value="">Загрузка...</option></select></div>
-        <div class="col-md-4"><label class="form-label">Тренер *</label><select class="form-select" id="perTrainer" name="trainer_id" required><option value="">Загрузка...</option></select></div>
-        <div class="col-md-4"><label class="form-label">Дата *</label><input type="date" class="form-control" name="date" required></div>
+<div class="modal fade" id="addPersonalModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Новая персональная</h5><button class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <div class="row g-3 mt-1">
-        <div class="col-md-3"><label class="form-label">Начало *</label><input type="time" class="form-control" name="start_time" required></div>
-        <div class="col-md-3"><label class="form-label">Окончание *</label><input type="time" class="form-control" name="end_time" required></div>
-        <div class="col-md-3"><label class="form-label">Статус</label>
-          <select class="form-select" name="status">
-            <option value="Запланирована" selected>Запланирована</option>
-            <option value="Завершена">Завершена</option>
-            <option value="Отменена">Отменена</option>
-          </select>
+      <form id="addPersonalForm">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4"><label class="form-label">Абонемент *</label><select class="form-select" id="perSub"
+                name="subscription_id" required>
+                <option value="">Загрузка...</option>
+              </select></div>
+            <div class="col-md-4"><label class="form-label">Тренер *</label><select class="form-select" id="perTrainer"
+                name="trainer_id" required>
+                <option value="">Загрузка...</option>
+              </select></div>
+            <div class="col-md-4"><label class="form-label">Дата *</label><input type="date" class="form-control"
+                name="date" required></div>
+          </div>
+          <div class="row g-3 mt-1">
+            <div class="col-md-3"><label class="form-label">Начало *</label><input type="time" class="form-control"
+                name="start_time" required></div>
+            <div class="col-md-3"><label class="form-label">Окончание *</label><input type="time" class="form-control"
+                name="end_time" required></div>
+            <div class="col-md-3"><label class="form-label">Статус</label>
+              <select class="form-select" name="status">
+                <option value="Запланирована" selected>Запланирована</option>
+                <option value="Завершена">Завершена</option>
+                <option value="Отменена">Отменена</option>
+              </select>
+            </div>
+            <div class="col-md-3"><label class="form-label">Стоимость</label><input type="number" step="0.01" min="0"
+                class="form-control" name="price"></div>
+          </div>
         </div>
-        <div class="col-md-3"><label class="form-label">Стоимость</label><input type="number" step="0.01" min="0" class="form-control" name="price"></div>
-      </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Отмена</button>
+          <button class="btn btn-primary" type="submit">Сохранить</button>
+        </div>
+      </form>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Отмена</button>
-      <button class="btn btn-primary" type="submit">Сохранить</button>
-    </div>
-  </form>
-</div></div></div>
+  </div>
+</div>
 
 <!-- Модалка: редактировать персональную -->
-<div class="modal fade" id="editPersonalModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
-  <div class="modal-header"><h5 class="modal-title">Редактировать персональную</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-  <form id="editPersonalForm">
-    <div class="modal-body">
-      <input type="hidden" id="epId" name="id">
-      <div class="row g-3">
-        <div class="col-md-4"><label class="form-label">Абонемент *</label><select class="form-select" id="epSub" name="subscription_id" required></select></div>
-        <div class="col-md-4"><label class="form-label">Тренер *</label><select class="form-select" id="epTrainer" name="trainer_id" required></select></div>
-        <div class="col-md-4"><label class="form-label">Дата *</label><input type="date" class="form-control" id="epDate" name="date" required></div>
+<div class="modal fade" id="editPersonalModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Редактировать персональную</h5><button class="btn-close"
+          data-bs-dismiss="modal"></button>
       </div>
-      <div class="row g-3 mt-1">
-        <div class="col-md-3"><label class="form-label">Начало *</label><input type="time" class="form-control" id="epStart" name="start_time" required></div>
-        <div class="col-md-3"><label class="form-label">Окончание *</label><input type="time" class="form-control" id="epEnd" name="end_time" required></div>
-        <div class="col-md-3"><label class="form-label">Статус</label>
-          <select class="form-select" id="epStatus" name="status">
-            <option value="Запланирована">Запланирована</option>
-            <option value="Завершена">Завершена</option>
-            <option value="Отменена">Отменена</option>
-          </select>
+      <form id="editPersonalForm">
+        <div class="modal-body">
+          <input type="hidden" id="epId" name="id">
+          <div class="row g-3">
+            <div class="col-md-4"><label class="form-label">Абонемент *</label><select class="form-select" id="epSub"
+                name="subscription_id" required></select></div>
+            <div class="col-md-4"><label class="form-label">Тренер *</label><select class="form-select" id="epTrainer"
+                name="trainer_id" required></select></div>
+            <div class="col-md-4"><label class="form-label">Дата *</label><input type="date" class="form-control"
+                id="epDate" name="date" required></div>
+          </div>
+          <div class="row g-3 mt-1">
+            <div class="col-md-3"><label class="form-label">Начало *</label><input type="time" class="form-control"
+                id="epStart" name="start_time" required></div>
+            <div class="col-md-3"><label class="form-label">Окончание *</label><input type="time" class="form-control"
+                id="epEnd" name="end_time" required></div>
+            <div class="col-md-3"><label class="form-label">Статус</label>
+              <select class="form-select" id="epStatus" name="status">
+                <option value="Запланирована">Запланирована</option>
+                <option value="Завершена">Завершена</option>
+                <option value="Отменена">Отменена</option>
+              </select>
+            </div>
+            <div class="col-md-3"><label class="form-label">Стоимость</label><input type="number" step="0.01" min="0"
+                class="form-control" id="epPrice" name="price"></div>
+          </div>
         </div>
-        <div class="col-md-3"><label class="form-label">Стоимость</label><input type="number" step="0.01" min="0" class="form-control" id="epPrice" name="price"></div>
-      </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Отмена</button>
+          <button class="btn btn-primary" type="submit">Сохранить</button>
+        </div>
+      </form>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Отмена</button>
-      <button class="btn btn-primary" type="submit">Сохранить</button>
-    </div>
-  </form>
-</div></div></div>
+  </div>
+</div>
 
 <!-- Модалка: запись на групповую -->
-<div class="modal fade" id="enrollModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
-  <div class="modal-header"><h5 class="modal-title">Запись на групповую</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-  <form id="enrollForm">
-    <div class="modal-body">
-      <input type="hidden" id="enGroupId" name="group_id">
-      <div class="mb-2"><label class="form-label">Тренировка</label><input class="form-control" id="enGroupTitle" disabled></div>
-      <div class="mb-3"><label class="form-label">Абонемент *</label><select class="form-select" id="enSub" name="subscription_id" required><option value="">Загрузка...</option></select></div>
-      <div class="mb-1"><label class="form-label">Статус</label>
-        <select class="form-select" name="status">
-          <option value="Записан" selected>Записан</option>
-          <option value="Посетил">Посетил</option>
-          <option value="Отменил">Отменил</option>
-        </select>
+<div class="modal fade" id="enrollModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Запись на групповую</h5><button class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <div class="form-text">Таблица: «Запись_на_групповую_тренировку» (id_групповой_тренировки + id_абонемента).</div>
+      <form id="enrollForm">
+        <div class="modal-body">
+          <input type="hidden" id="enGroupId" name="group_id">
+          <div class="mb-2"><label class="form-label">Тренировка</label><input class="form-control" id="enGroupTitle"
+              disabled></div>
+          <div class="mb-3"><label class="form-label">Абонемент *</label><select class="form-select" id="enSub"
+              name="subscription_id" required>
+              <option value="">Загрузка...</option>
+            </select></div>
+          <div class="mb-1"><label class="form-label">Статус</label>
+            <select class="form-select" name="status">
+              <option value="Записан" selected>Записан</option>
+              <option value="Посетил">Посетил</option>
+              <option value="Отменил">Отменил</option>
+            </select>
+          </div>
+          <div class="form-text">Таблица: «Запись_на_групповую_тренировку» (id_групповой_тренировки + id_абонемента).
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Отмена</button>
+          <button class="btn btn-primary" type="submit">Создать запись</button>
+        </div>
+      </form>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Отмена</button>
-      <button class="btn btn-primary" type="submit">Создать запись</button>
-    </div>
-  </form>
-</div></div></div>
+  </div>
+</div>
 
+<!-- Модалка: список записанных на групповую тренировку -->
+<div class="modal fade" id="enrollListModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Записанные на тренировку</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <input type="text" id="enrollListTitle" class="form-control" disabled>
+        </div>
+        <div id="enrollListContainer">
+          <div class="text-muted">Загрузка...</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Закрыть</button>
+      </div>
+    </div>
+  </div>
+</div>

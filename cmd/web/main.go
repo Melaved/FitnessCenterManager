@@ -108,6 +108,7 @@ func setupRoutes(app *fiber.App) {
 	app.Delete("/personal-trainings/:id", handlers.DeletePersonalTraining)
 
 	// запись на групповую
+	app.Get("/api/group-trainings/:id/enrollments", handlers.ListGroupEnrollments)
 	app.Post("/group-enrollments", handlers.CreateGroupEnrollment)
 	// API для селектов
 	app.Get("/api/clients-for-select", handlers.GetClientsForSelect)
