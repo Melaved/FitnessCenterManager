@@ -47,8 +47,53 @@
 
 5) Запустите приложение:
 
-   - `go run ./cmd/web`
-   - По умолчанию сервер слушает `:3000` → откройте `http://localhost:3000/`
+- `go run ./cmd/web`
+- По умолчанию сервер слушает `:3000` → откройте `http://localhost:3000/`
+
+## Контейнеризация
+
+- Сборка Docker-образа:
+  - `docker build -t fitness-center-manager .`
+
+- Запуск через docker-compose (БД + веб):
+  - Убедитесь, что файл `secrets/app_user_password.txt` существует и содержит пароль БД.
+  - При необходимости отредактируйте `config.docker.example.yaml` (в нём `database.host: db`, пользователь по умолчанию `postgres`).
+  - Запуск: `docker compose up -d`
+  - Веб будет доступен на `http://localhost:3000/`.
+  - В `docker-compose.yml` настроены healthchecks для `db` (pg_isready) и `web` (HTTP GET `/`).
+
+Примечания:
+- Конфиги монтируются в контейнер (`config.docker.example.yaml` → `/app/config.yaml`; `config.secret.yaml` → `/app/config.secret.yaml`).
+- Загрузки (`web/uploads`) монтируются томом с хоста, чтобы сохранялись между перезапусками.
+- Инициализация схемы: положите SQL в папку `init/` (монтируется в `/docker-entrypoint-initdb.d`) — он выполнится при первом старте кластера Postgres. Либо примените дамп `schema.sql` вручную через `psql`.
+
+## CI
+
+В репозитории настроен GitHub Actions (`.github/workflows/ci.yml`):
+- Сборка Go-проекта и `go vet` на push/PR в `main/master`.
+- Отдельная job для сборки Docker-образа (без публикации).
+
+### Публикация образа (опционально)
+
+Workflow поддерживает публикацию образа при пуше в `main`, если заданы секреты репозитория:
+- `REGISTRY` — адрес реестра (например, `ghcr.io` или `docker.io`).
+- `REGISTRY_USERNAME` — имя пользователя реестра.
+- `REGISTRY_PASSWORD` — токен/пароль.
+- `IMAGE_NAME` — имя образа (например, `OWNER/fitness-center-manager`).
+
+При наличии этих секретов job `docker-publish` соберёт и запушит тег `:latest`.
+
+## Makefile (шпаргалка)
+
+- `make run` — запустить приложение локально (`go run ./cmd/web`).
+- `make build` — собрать бинарник в `bin/server`.
+- `make test` — запустить тесты `go test ./...`.
+- `make tidy` / `make vet` / `make fmt` — обслуживание зависимостей и кода.
+- `make docker-build` — собрать Docker‑образ (имя по умолчанию `fitness-center-manager:local`, задаётся переменной `IMAGE`).
+- `make docker-up` / `make docker-down` / `make docker-logs` — управление `docker compose`.
+
+Пример: `make docker-build IMAGE=ghcr.io/owner/fitness-center-manager:latest`.
+
 
 ## Роуты
 - `GET /` — дашборд
