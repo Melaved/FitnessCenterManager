@@ -1,0 +1,22 @@
+# build context hygiene
+.git
+.github
+.vscode
+.idea
+node_modules
+**/*.log
+*.tmp
+*.temp
+
+# go build cache
+/bin/
+/pkg/
+
+# local secrets and dumps
+config.secret.yaml
+secrets/
+schema.sql
+
+# uploads (монтируются в контейнер как volume)
+web/uploads/
+

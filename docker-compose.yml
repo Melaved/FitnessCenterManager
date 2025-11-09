@@ -5,11 +5,41 @@ services:
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/app_user_password
       POSTGRES_DB: fitness_center
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d $${POSTGRES_DB:-fitness_center}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     # ports:
     #   - "127.0.0.1:5433:5432" 
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./secrets/app_user_password.txt:/run/secrets/app_user_password:ro
       - ./init:/docker-entrypoint-initdb.d:ro
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    volumes:
+      # Конфиг для контейнера (используйте docker-версию, чтобы host=\"db\")
+      - ./config.docker.example.yaml:/app/config.yaml:ro
+      # Секретный конфиг (пароль БД) — опционально, если нужен
+      - ./config.secret.yaml:/app/config.secret.yaml:ro
+      # Загрузки — сохранять на хосте
+      - ./web/uploads:/app/web/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ >/dev/null 2>&1 || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    # При необходимости передайте переменные окружения тут
+    # environment:
+    #   TZ: Europe/Moscow
 volumes:
   pgdata: {}

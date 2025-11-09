@@ -1,0 +1,18 @@
+database:
+  host: "db"           # имя сервиса в docker-compose
+  port: "5432"
+  user: "postgres"     # используем суперпользователя контейнера
+  dbname: "fitness_center"
+  sslmode: "disable"
+
+  max_open_conns: 25
+  max_idle_conns: 25
+  conn_max_lifetime_minutes: 5
+  conn_max_idle_minutes: 1
+  connect_timeout_seconds: 5
+
+server:
+  port: ":3000"
+  template_path: "./web/templates"
+  static_path: "./web/static"
+  upload_path: "./web/uploads"
