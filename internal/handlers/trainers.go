@@ -18,19 +18,22 @@ func tplScript(src string) template.HTML { // маленький помощни�
 }
 
 func GetTrainersPage(c *fiber.Ctx) error {
-	db := database.GetDB()
+    db := database.GetDB()
 
-	rows, err := db.Query(`
-		SELECT 
-			"id_тренера",
-			"ФИО",
-			"Номер_телефона",
-			"Специализация",
-			"Дата_найма",
-			"Стаж_работы"
-		FROM "Тренер"
-		ORDER BY "id_тренера" DESC
-	`)
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+
+    rows, err := db.QueryContext(ctx, `
+        SELECT 
+            "id_тренера",
+            "ФИО",
+            "Номер_телефона",
+            "Специализация",
+            "Дата_найма",
+            "Стаж_работы"
+        FROM "Тренер"
+        ORDER BY "id_тренера" DESC
+    `)
 	if err != nil {
 		log.Printf("❌ trainers list error: %v", err)
 		return c.Render("trainers", fiber.Map{
@@ -78,58 +81,62 @@ func CreateTrainer(c *fiber.Ctx) error {
 		Experience     int    `form:"experience"`
 	}
 	var f formT
-	if err := c.BodyParser(&f); err != nil {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверные данные формы"})
-	}
-	if f.FIO == "" || f.Phone == "" || f.HireDate == "" {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "ФИО, телефон и дата найма обязательны"})
-	}
-	hire, err := time.Parse("2006-01-02", f.HireDate)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверная дата найма"})
-	}
+    if err := c.BodyParser(&f); err != nil {
+        return jsonError(c, 400, "Неверные данные формы", err)
+    }
+    if f.FIO == "" || f.Phone == "" || f.HireDate == "" {
+        return jsonError(c, 400, "ФИО, телефон и дата найма обязательны", nil)
+    }
+    hire, err := time.Parse("2006-01-02", f.HireDate)
+    if err != nil {
+        return jsonError(c, 400, "Неверная дата найма", err)
+    }
 
 	db := database.GetDB()
 	var id int
-	err = db.QueryRow(`
-		INSERT INTO "Тренер" ("ФИО","Номер_телефона","Специализация","Дата_найма","Стаж_работы")
-		VALUES ($1,$2,$3,$4,$5)
-		RETURNING "id_тренера"
-	`, f.FIO, f.Phone, f.Specialization, hire, f.Experience).Scan(&id)
-	if err != nil {
-		log.Printf("❌ create trainer: %v", err)
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка сохранения тренера"})
-	}
-	return c.JSON(fiber.Map{"success": true, "message": "Тренер добавлен", "id": id})
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    err = db.QueryRowContext(ctx, `
+        INSERT INTO "Тренер" ("ФИО","Номер_телефона","Специализация","Дата_найма","Стаж_работы")
+        VALUES ($1,$2,$3,$4,$5)
+        RETURNING "id_тренера"
+    `, f.FIO, f.Phone, f.Specialization, hire, f.Experience).Scan(&id)
+    if err != nil {
+        log.Printf("❌ create trainer: %v", err)
+        return jsonError(c, 500, "Ошибка сохранения тренера", err)
+    }
+    return jsonOK(c, fiber.Map{"message": "Тренер добавлен", "id": id})
 }
 
 func GetTrainerByID(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil || id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
-	}
-	db := database.GetDB()
-	var t models.Trainer
-	err = db.QueryRow(`
-		SELECT 
-			"id_тренера",
-			"ФИО",
-			"Номер_телефона",
-			"Специализация",
-			"Дата_найма",
-			"Стаж_работы"
-		FROM "Тренер"
-		WHERE "id_тренера"=$1
-	`, id).Scan(
-		&t.ID, &t.FIO, &t.Phone, &t.Specialization, &t.HireDate, &t.Experience,
-	)
-	if err == sql.ErrNoRows {
-		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Тренер не найден"})
-	}
-	if err != nil {
-		log.Printf("❌ get trainer: %v", err)
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка БД"})
-	}
+    if err != nil || id <= 0 {
+        return jsonError(c, 400, "Некорректный id", err)
+    }
+    db := database.GetDB()
+    var t models.Trainer
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    err = db.QueryRowContext(ctx, `
+        SELECT 
+            "id_тренера",
+            "ФИО",
+            "Номер_телефона",
+            "Специализация",
+            "Дата_найма",
+            "Стаж_работы"
+        FROM "Тренер"
+        WHERE "id_тренера"=$1
+    `, id).Scan(
+        &t.ID, &t.FIO, &t.Phone, &t.Specialization, &t.HireDate, &t.Experience,
+    )
+    if err == sql.ErrNoRows {
+        return jsonError(c, 404, "Тренер не найден", nil)
+    }
+    if err != nil {
+        log.Printf("❌ get trainer: %v", err)
+        return jsonError(c, 500, "Ошибка БД", err)
+    }
 	resp := fiber.Map{
 		"id":             t.ID,
 		"fio":            t.FIO,
@@ -138,7 +145,7 @@ func GetTrainerByID(c *fiber.Ctx) error {
 		"hire_date":      t.HireDate.Format("2006-01-02"),
 		"experience":     t.Experience,
 	}
-	return c.JSON(fiber.Map{"success": true, "trainer": resp})
+    return jsonOK(c, fiber.Map{"trainer": resp})
 }
 
 // ======================= UPDATE =======================
@@ -156,67 +163,70 @@ func UpdateTrainer(c *fiber.Ctx) error {
 		Experience     int    `form:"experience"`
 	}
 	var f formT
-	if err := c.BodyParser(&f); err != nil {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверные данные формы"})
-	}
-	if f.FIO == "" || f.Phone == "" || f.HireDate == "" {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "ФИО, телефон и дата найма обязательны"})
-	}
-	hire, err := time.Parse("2006-01-02", f.HireDate)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверная дата найма"})
-	}
+    if err := c.BodyParser(&f); err != nil {
+        return jsonError(c, 400, "Неверные данные формы", err)
+    }
+    if f.FIO == "" || f.Phone == "" || f.HireDate == "" {
+        return jsonError(c, 400, "ФИО, телефон и дата найма обязательны", nil)
+    }
+    hire, err := time.Parse("2006-01-02", f.HireDate)
+    if err != nil {
+        return jsonError(c, 400, "Неверная дата найма", err)
+    }
 
-	db := database.GetDB()
-	res, err := db.Exec(`
-		UPDATE "Тренер"
-		SET "ФИО"=$2, "Номер_телефона"=$3, "Специализация"=$4, "Дата_найма"=$5, "Стаж_работы"=$6
-		WHERE "id_тренера"=$1
-	`, id, f.FIO, f.Phone, f.Specialization, hire, f.Experience)
-	if err != nil {
-		log.Printf("❌ update trainer: %v", err)
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка обновления"})
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Тренер не найден"})
-	}
-	return c.JSON(fiber.Map{"success": true, "message": "Данные тренера обновлены"})
+    db := database.GetDB()
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    res, err := db.ExecContext(ctx, `
+        UPDATE "Тренер"
+        SET "ФИО"=$2, "Номер_телефона"=$3, "Специализация"=$4, "Дата_найма"=$5, "Стаж_работы"=$6
+        WHERE "id_тренера"=$1
+    `, id, f.FIO, f.Phone, f.Specialization, hire, f.Experience)
+    if err != nil {
+        log.Printf("❌ update trainer: %v", err)
+        return jsonError(c, 500, "Ошибка обновления", err)
+    }
+    if n, _ := res.RowsAffected(); n == 0 {
+        return jsonError(c, 404, "Тренер не найден", nil)
+    }
+    return jsonOK(c, fiber.Map{"message": "Данные тренера обновлены"})
 }
 
 // ======================= DELETE =======================
 func DeleteTrainer(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil || id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
-	}
-	db := database.GetDB()
+    if err != nil || id <= 0 {
+        return jsonError(c, 400, "Некорректный id", err)
+    }
+    db := database.GetDB()
 
-	// Если на тренера ссылаются тренировки, тут может быть FK.
-	res, err := db.Exec(`DELETE FROM "Тренер" WHERE "id_тренера"=$1`, id)
-	if err != nil {
-		return c.Status(409).JSON(fiber.Map{"success": false, "error": "Невозможно удалить: есть связанные тренировки"})
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Тренер не найден"})
-	}
-	return c.JSON(fiber.Map{"success": true, "message": "Тренер удалён"})
+    // Если на тренера ссылаются тренировки, тут может быть FK.
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    res, err := db.ExecContext(ctx, `DELETE FROM "Тренер" WHERE "id_тренера"=$1`, id)
+    if err != nil {
+        return jsonError(c, 409, "Невозможно удалить: есть связанные тренировки", err)
+    }
+    if n, _ := res.RowsAffected(); n == 0 {
+        return jsonError(c, 404, "Тренер не найден", nil)
+    }
+    return jsonOK(c, fiber.Map{"message": "Тренер удалён"})
 }
 
 func GetTrainersForSelect(c *fiber.Ctx) error {
 	db := database.GetDB()
 
-	rows, err := db.Query(`
-		SELECT "id_тренера", "ФИО"
-		FROM "Тренер"
-		ORDER BY "ФИО"
-	`)
-	if err != nil {
-		log.Printf("❌ trainers-for-select: %v", err)
-		return c.Status(500).JSON(fiber.Map{
-			"success": false,
-			"error":   "Ошибка чтения тренеров",
-		})
-	}
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    rows, err := db.QueryContext(ctx, `
+        SELECT "id_тренера", "ФИО"
+        FROM "Тренер"
+        ORDER BY "ФИО"
+    `)
+    if err != nil {
+        log.Printf("❌ trainers-for-select: %v", err)
+        return jsonError(c, 500, "Ошибка чтения тренеров", err)
+    }
 	defer rows.Close()
 
 	type item struct {
@@ -230,5 +240,5 @@ func GetTrainersForSelect(c *fiber.Ctx) error {
 			out = append(out, it)
 		}
 	}
-	return c.JSON(fiber.Map{"success": true, "trainers": out})
+    return jsonOK(c, fiber.Map{"trainers": out})
 }

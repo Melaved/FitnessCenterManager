@@ -288,36 +288,38 @@ func GetTrainingsPage(c *fiber.Ctx) error {
 // ====== CRUD: Групповые ======
 
 func GetGroupTrainingByID(c *fiber.Ctx) error {
-	id, _ := strconv.Atoi(c.Params("id"))
-	if id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
-	}
+    id, _ := strconv.Atoi(c.Params("id"))
+    if id <= 0 {
+        return jsonError(c, 400, "Некорректный id", nil)
+    }
 	db := database.GetDB()
 	var (
 		title, desc, level string
 		max, trainerID, zoneID int
 		start, end time.Time
 	)
-	err := db.QueryRow(`
-		SELECT "Название", COALESCE("Описание",''), COALESCE("Уровень_сложности",''), 
-		       COALESCE("Максимум_участников",0),
-		       "Время_начала","Время_окончания",
-		       "id_тренера","id_зоны"
-		FROM "Групповая_тренировка" WHERE "id_групповой_тренировки"=$1
-	`, id).Scan(&title, &desc, &level, &max, &start, &end, &trainerID, &zoneID)
-	if err == sql.ErrNoRows {
-		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Не найдено"})
-	}
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка БД"})
-	}
-	return c.JSON(fiber.Map{"success": true, "item": fiber.Map{
-		"ID": id, "Title": title, "Description": desc, "Level": level, "Max": max,
-		"Date": start.Format("2006-01-02"),
-		"StartTime": start.Format("15:04"),
-		"EndTime":   end.Format("15:04"),
-		"TrainerID": trainerID, "ZoneID": zoneID,
-	}})
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    err := db.QueryRowContext(ctx, `
+        SELECT "Название", COALESCE("Описание",''), COALESCE("Уровень_сложности",''), 
+               COALESCE("Максимум_участников",0),
+               "Время_начала","Время_окончания",
+               "id_тренера","id_зоны"
+        FROM "Групповая_тренировка" WHERE "id_групповой_тренировки"=$1
+    `, id).Scan(&title, &desc, &level, &max, &start, &end, &trainerID, &zoneID)
+    if err == sql.ErrNoRows {
+        return jsonError(c, 404, "Не найдено", nil)
+    }
+    if err != nil {
+        return jsonError(c, 500, "Ошибка БД", err)
+    }
+    return jsonOK(c, fiber.Map{"item": fiber.Map{
+        "ID": id, "Title": title, "Description": desc, "Level": level, "Max": max,
+        "Date": start.Format("2006-01-02"),
+        "StartTime": start.Format("15:04"),
+        "EndTime":   end.Format("15:04"),
+        "TrainerID": trainerID, "ZoneID": zoneID,
+    }})
 }
 
 func CreateGroupTraining(c *fiber.Ctx) error {
@@ -333,42 +335,44 @@ func CreateGroupTraining(c *fiber.Ctx) error {
 		Zone    int    `form:"zone_id"`
 	}
 	var f fT
-	if err := c.BodyParser(&f); err != nil {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверные данные формы"})
-	}
-	if f.Title == "" || f.Date == "" || f.Start == "" || f.End == "" || f.Trainer <= 0 || f.Zone <= 0 || f.Max <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Заполните обязательные поля"})
-	}
+    if err := c.BodyParser(&f); err != nil {
+        return jsonError(c, 400, "Неверные данные формы", err)
+    }
+    if f.Title == "" || f.Date == "" || f.Start == "" || f.End == "" || f.Trainer <= 0 || f.Zone <= 0 || f.Max <= 0 {
+        return jsonError(c, 400, "Заполните обязательные поля", nil)
+    }
 	switch f.Level {
 	case "", "Начальный", "Средний", "Продвинутый":
 	default:
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверный уровень сложности"})
+        return jsonError(c, 400, "Неверный уровень сложности", nil)
 	}
 	start, err1 := time.Parse("2006-01-02 15:04", f.Date+" "+f.Start)
 	end,   err2 := time.Parse("2006-01-02 15:04", f.Date+" "+f.End)
-	if err1 != nil || err2 != nil || !end.After(start) {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректное время начала/окончания"})
-	}
+    if err1 != nil || err2 != nil || !end.After(start) {
+        return jsonError(c, 400, "Некорректное время начала/окончания", nil)
+    }
 	db := database.GetDB()
 	var id int
-	err := db.QueryRow(`
-		INSERT INTO "Групповая_тренировка"
-		("id_тренера","id_зоны","Название","Описание","Максимум_участников","Время_начала","Время_окончания","Уровень_сложности")
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-		RETURNING "id_групповой_тренировки"
-	`, f.Trainer, f.Zone, f.Title, nullIfEmpty(f.Desc), f.Max, start, end, nullIfEmpty(f.Level)).Scan(&id)
-	if err != nil {
-		log.Printf("create group err: %v", err)
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка сохранения"})
-	}
-	return c.JSON(fiber.Map{"success": true, "id": id, "message": "Групповая тренировка создана"})
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    err := db.QueryRowContext(ctx, `
+        INSERT INTO "Групповая_тренировка"
+        ("id_тренера","id_зоны","Название","Описание","Максимум_участников","Время_начала","Время_окончания","Уровень_сложности")
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+        RETURNING "id_групповой_тренировки"
+    `, f.Trainer, f.Zone, f.Title, nullIfEmpty(f.Desc), f.Max, start, end, nullIfEmpty(f.Level)).Scan(&id)
+    if err != nil {
+        log.Printf("create group err: %v", err)
+        return jsonError(c, 500, "Ошибка сохранения", err)
+    }
+    return jsonOK(c, fiber.Map{"id": id, "message": "Групповая тренировка создана"})
 }
 
 func UpdateGroupTraining(c *fiber.Ctx) error {
 	id, _ := strconv.Atoi(c.Params("id"))
-	if id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
-	}
+    if id <= 0 {
+        return jsonError(c, 400, "Некорректный id", nil)
+    }
 	type fT struct {
 		Title   string `form:"title"`
 		Desc    string `form:"description"`
@@ -381,54 +385,58 @@ func UpdateGroupTraining(c *fiber.Ctx) error {
 		Zone    int    `form:"zone_id"`
 	}
 	var f fT
-	if err := c.BodyParser(&f); err != nil {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверные данные формы"})
-	}
+    if err := c.BodyParser(&f); err != nil {
+        return jsonError(c, 400, "Неверные данные формы", err)
+    }
 	if f.Title == "" || f.Date == "" || f.Start == "" || f.End == "" || f.Trainer <= 0 || f.Zone <= 0 || f.Max <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Заполните обязательные поля"})
+        return jsonError(c, 400, "Заполните обязательные поля", nil)
 	}
 	switch f.Level {
 	case "", "Начальный", "Средний", "Продвинутый":
 	default:
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверный уровень сложности"})
+        return jsonError(c, 400, "Неверный уровень сложности", nil)
 	}
 	start, err1 := time.Parse("2006-01-02 15:04", f.Date+" "+f.Start)
 	end,   err2 := time.Parse("2006-01-02 15:04", f.Date+" "+f.End)
-	if err1 != nil || err2 != nil || !end.After(start) {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректное время начала/окончания"})
-	}
+    if err1 != nil || err2 != nil || !end.After(start) {
+        return jsonError(c, 400, "Некорректное время начала/окончания", nil)
+    }
 
 	db := database.GetDB()
-	res, err := db.Exec(`
-		UPDATE "Групповая_тренировка"
-		SET "id_тренера"=$2,"id_зоны"=$3,"Название"=$4,"Описание"=$5,"Максимум_участников"=$6,
-		    "Время_начала"=$7,"Время_окончания"=$8,"Уровень_сложности"=$9
-		WHERE "id_групповой_тренировки"=$1
-	`, id, f.Trainer, f.Zone, f.Title, nullIfEmpty(f.Desc), f.Max, start, end, nullIfEmpty(f.Level))
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка обновления"})
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Не найдено"})
-	}
-	return c.JSON(fiber.Map{"success": true, "message": "Обновлено"})
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    res, err := db.ExecContext(ctx, `
+        UPDATE "Групповая_тренировка"
+        SET "id_тренера"=$2,"id_зоны"=$3,"Название"=$4,"Описание"=$5,"Максимум_участников"=$6,
+            "Время_начала"=$7,"Время_окончания"=$8,"Уровень_сложности"=$9
+        WHERE "id_групповой_тренировки"=$1
+    `, id, f.Trainer, f.Zone, f.Title, nullIfEmpty(f.Desc), f.Max, start, end, nullIfEmpty(f.Level))
+    if err != nil {
+        return jsonError(c, 500, "Ошибка обновления", err)
+    }
+    if n, _ := res.RowsAffected(); n == 0 {
+        return jsonError(c, 404, "Не найдено", nil)
+    }
+    return jsonOK(c, fiber.Map{"message": "Обновлено"})
 }
 
 func DeleteGroupTraining(c *fiber.Ctx) error {
 	id, _ := strconv.Atoi(c.Params("id"))
-	if id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
-	}
+    if id <= 0 {
+        return jsonError(c, 400, "Некорректный id", nil)
+    }
 	db := database.GetDB()
-	res, err := db.Exec(`DELETE FROM "Групповая_тренировка" WHERE "id_групповой_тренировки"=$1`, id)
-	if err != nil {
-		// связанные записи в "Запись_на_групповую_тренировку" могут мешать, но там ON DELETE CASCADE — должно удалиться
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка удаления"})
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Не найдено"})
-	}
-	return c.JSON(fiber.Map{"success": true, "message": "Удалено"})
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    res, err := db.ExecContext(ctx, `DELETE FROM "Групповая_тренировка" WHERE "id_групповой_тренировки"=$1`, id)
+    if err != nil {
+        // связанные записи в "Запись_на_групповую_тренировку" могут мешать, но там ON DELETE CASCADE — должно удалиться
+        return jsonError(c, 500, "Ошибка удаления", err)
+    }
+    if n, _ := res.RowsAffected(); n == 0 {
+        return jsonError(c, 404, "Не найдено", nil)
+    }
+    return jsonOK(c, fiber.Map{"message": "Удалено"})
 }
 
 // ====== CRUD: Персональные ======
@@ -491,37 +499,39 @@ func CreatePersonalTraining(c *fiber.Ctx) error {
 	}
 	start, err1 := time.Parse("2006-01-02 15:04", f.Date+" "+f.Start)
 	end,   err2 := time.Parse("2006-01-02 15:04", f.Date+" "+f.End)
-	if err1 != nil || err2 != nil || !end.After(start) {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректное время начала/окончания"})
-	}
+    if err1 != nil || err2 != nil || !end.After(start) {
+        return jsonError(c, 400, "Некорректное время начала/окончания", nil)
+    }
 	var price *float64
 	if f.Price != "" {
 		if p, err := strconv.ParseFloat(f.Price, 64); err == nil {
 			price = &p
 		} else {
-			return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверная стоимость"})
-		}
-	}
-	db := database.GetDB()
-	var id int
-	err := db.QueryRow(`
-		INSERT INTO "Персональная_тренировка"
-		("id_абонемента","id_тренера","Время_начала","Время_окончания","Статус","Стоимость")
-		VALUES ($1,$2,$3,$4,$5,$6)
-		RETURNING "id_персональной_тренировки"
-	`, f.Subscription, f.Trainer, start, end, coalesceStr(f.Status, "Запланирована"), nullablePrice(price)).Scan(&id)
-	if err != nil {
-		log.Printf("create personal err: %v", err)
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка сохранения"})
-	}
-	return c.JSON(fiber.Map{"success": true, "id": id, "message": "Персональная тренировка создана"})
+            return jsonError(c, 400, "Неверная стоимость", err)
+        }
+    }
+    db := database.GetDB()
+    var id int
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    err := db.QueryRowContext(ctx, `
+        INSERT INTO "Персональная_тренировка"
+        ("id_абонемента","id_тренера","Время_начала","Время_окончания","Статус","Стоимость")
+        VALUES ($1,$2,$3,$4,$5,$6)
+        RETURNING "id_персональной_тренировки"
+    `, f.Subscription, f.Trainer, start, end, coalesceStr(f.Status, "Запланирована"), nullablePrice(price)).Scan(&id)
+    if err != nil {
+        log.Printf("create personal err: %v", err)
+        return jsonError(c, 500, "Ошибка сохранения", err)
+    }
+    return jsonOK(c, fiber.Map{"id": id, "message": "Персональная тренировка создана"})
 }
 
 func UpdatePersonalTraining(c *fiber.Ctx) error {
 	id, _ := strconv.Atoi(c.Params("id"))
-	if id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
-	}
+    if id <= 0 {
+        return jsonError(c, 400, "Некорректный id", nil)
+    }
 	type fT struct {
 		Subscription int    `form:"subscription_id"`
 		Trainer      int    `form:"trainer_id"`
@@ -532,59 +542,63 @@ func UpdatePersonalTraining(c *fiber.Ctx) error {
 		Price        string `form:"price"`
 	}
 	var f fT
-	if err := c.BodyParser(&f); err != nil {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверные данные формы"})
-	}
-	if f.Subscription <= 0 || f.Trainer <= 0 || f.Date == "" || f.Start == "" || f.End == "" {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Заполните обязательные поля"})
-	}
+    if err := c.BodyParser(&f); err != nil {
+        return jsonError(c, 400, "Неверные данные формы", err)
+    }
+    if f.Subscription <= 0 || f.Trainer <= 0 || f.Date == "" || f.Start == "" || f.End == "" {
+        return jsonError(c, 400, "Заполните обязательные поля", nil)
+    }
 	switch f.Status {
 	case "Запланирована", "Завершена", "Отменена":
-	default:
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверный статус"})
+    default:
+        return jsonError(c, 400, "Неверный статус", nil)
 	}
 	start, err1 := time.Parse("2006-01-02 15:04", f.Date+" "+f.Start)
 	end,   err2 := time.Parse("2006-01-02 15:04", f.Date+" "+f.End)
-	if err1 != nil || err2 != nil || !end.After(start) {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректное время начала/окончания"})
-	}
+    if err1 != nil || err2 != nil || !end.After(start) {
+        return jsonError(c, 400, "Некорректное время начала/окончания", nil)
+    }
 	var price *float64
 	if f.Price != "" {
 		if p, err := strconv.ParseFloat(f.Price, 64); err == nil {
 			price = &p
 		} else {
-			return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверная стоимость"})
-		}
-	}
-	db := database.GetDB()
-	res, err := db.Exec(`
-		UPDATE "Персональная_тренировка"
-		SET "id_абонемента"=$2,"id_тренера"=$3,"Время_начала"=$4,"Время_окончания"=$5,"Статус"=$6,"Стоимость"=$7
-		WHERE "id_персональной_тренировки"=$1
-	`, id, f.Subscription, f.Trainer, start, end, f.Status, nullablePrice(price))
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка обновления"})
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Не найдено"})
-	}
-	return c.JSON(fiber.Map{"success": true, "message": "Обновлено"})
+            return jsonError(c, 400, "Неверная стоимость", err)
+        }
+    }
+    db := database.GetDB()
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    res, err := db.ExecContext(ctx, `
+        UPDATE "Персональная_тренировка"
+        SET "id_абонемента"=$2,"id_тренера"=$3,"Время_начала"=$4,"Время_окончания"=$5,"Статус"=$6,"Стоимость"=$7
+        WHERE "id_персональной_тренировки"=$1
+    `, id, f.Subscription, f.Trainer, start, end, f.Status, nullablePrice(price))
+    if err != nil {
+        return jsonError(c, 500, "Ошибка обновления", err)
+    }
+    if n, _ := res.RowsAffected(); n == 0 {
+        return jsonError(c, 404, "Не найдено", nil)
+    }
+    return jsonOK(c, fiber.Map{"message": "Обновлено"})
 }
 
 func DeletePersonalTraining(c *fiber.Ctx) error {
 	id, _ := strconv.Atoi(c.Params("id"))
-	if id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
-	}
-	db := database.GetDB()
-	res, err := db.Exec(`DELETE FROM "Персональная_тренировка" WHERE "id_персональной_тренировки"=$1`, id)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка удаления"})
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Не найдено"})
-	}
-	return c.JSON(fiber.Map{"success": true, "message": "Удалено"})
+    if id <= 0 {
+        return jsonError(c, 400, "Некорректный id", nil)
+    }
+    db := database.GetDB()
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    res, err := db.ExecContext(ctx, `DELETE FROM "Персональная_тренировка" WHERE "id_персональной_тренировки"=$1`, id)
+    if err != nil {
+        return jsonError(c, 500, "Ошибка удаления", err)
+    }
+    if n, _ := res.RowsAffected(); n == 0 {
+        return jsonError(c, 404, "Не найдено", nil)
+    }
+    return jsonOK(c, fiber.Map{"message": "Удалено"})
 }
 
 // ====== Запись на групповую ======
@@ -595,67 +609,71 @@ func CreateGroupEnrollment(c *fiber.Ctx) error {
 		SubID   int `form:"subscription_id"`
 		Status  string `form:"status"` // опц., по умолчанию 'Записан'
 	}
-	var f fT
-	if err := c.BodyParser(&f); err != nil {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверные данные формы"})
-	}
-	if f.GroupID <= 0 || f.SubID <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Выберите тренировку и абонемент"})
-	}
+    var f fT
+    if err := c.BodyParser(&f); err != nil {
+        return jsonError(c, 400, "Неверные данные формы", err)
+    }
+    if f.GroupID <= 0 || f.SubID <= 0 {
+        return jsonError(c, 400, "Выберите тренировку и абонемент", nil)
+    }
 	switch f.Status {
 	case "", "Записан", "Посетил", "Отменил":
-	default:
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверный статус записи"})
+    default:
+        return jsonError(c, 400, "Неверный статус записи", nil)
 	}
 
-	db := database.GetDB()
-	// проверим, что групповая существует
-	var exists int
-	if err := db.QueryRow(`SELECT 1 FROM "Групповая_тренировка" WHERE "id_групповой_тренировки"=$1`, f.GroupID).Scan(&exists); err != nil {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Групповая тренировка не найдена"})
-	}
-	// и абонемент существует
-	if err := db.QueryRow(`SELECT 1 FROM "Абонемент" WHERE "id_абонемента"=$1`, f.SubID).Scan(&exists); err != nil {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Абонемент не найден"})
-	}
+    db := database.GetDB()
+    // проверим, что групповая существует
+    var exists int
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    if err := db.QueryRowContext(ctx, `SELECT 1 FROM "Групповая_тренировка" WHERE "id_групповой_тренировки"=$1`, f.GroupID).Scan(&exists); err != nil {
+        return jsonError(c, 400, "Групповая тренировка не найдена", err)
+    }
+    // и абонемент существует
+    if err := db.QueryRowContext(ctx, `SELECT 1 FROM "Абонемент" WHERE "id_абонемента"=$1`, f.SubID).Scan(&exists); err != nil {
+        return jsonError(c, 400, "Абонемент не найден", err)
+    }
 
-	var id int
-	err := db.QueryRow(`
-		INSERT INTO "Запись_на_групповую_тренировку"
-		("id_групповой_тренировки","id_абонемента","Статус")
-		VALUES ($1,$2,$3)
-		RETURNING "id_записи"
-	`, f.GroupID, f.SubID, coalesceStr(f.Status, "Записан")).Scan(&id)
-	if err != nil {
-		log.Printf("enrollment err: %v", err)
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Не удалось создать запись (возможно, дубликат)"})
-	}
-	return c.JSON(fiber.Map{"success": true, "id": id, "message": "Запись создана"})
+    var id int
+    err := db.QueryRowContext(ctx, `
+        INSERT INTO "Запись_на_групповую_тренировку"
+        ("id_групповой_тренировки","id_абонемента","Статус")
+        VALUES ($1,$2,$3)
+        RETURNING "id_записи"
+    `, f.GroupID, f.SubID, coalesceStr(f.Status, "Записан")).Scan(&id)
+    if err != nil {
+        log.Printf("enrollment err: %v", err)
+        return jsonError(c, 500, "Не удалось создать запись (возможно, дубликат)", err)
+    }
+    return jsonOK(c, fiber.Map{"id": id, "message": "Запись создана"})
 }
 
 func ListGroupEnrollments(c *fiber.Ctx) error {
-	id, _ := strconv.Atoi(c.Params("id"))
-	if id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id тренировки"})
-	}
+    id, _ := strconv.Atoi(c.Params("id"))
+    if id <= 0 {
+        return jsonError(c, 400, "Некорректный id тренировки", nil)
+    }
 
 	db := database.GetDB()
-	rows, err := db.Query(`
-		SELECT 
-			e."id_записи",
-			e."Статус",
-			s."id_абонемента",
-			c."id_клиента",
-			c."ФИО"
-		FROM "Запись_на_групповую_тренировку" e
-		JOIN "Абонемент" s ON s."id_абонемента" = e."id_абонемента"
-		JOIN "Клиент"    c ON c."id_клиента"    = s."id_клиента"
-		WHERE e."id_групповой_тренировки" = $1
-		ORDER BY e."id_записи" DESC
-	`, id)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка загрузки записей"})
-	}
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    rows, err := db.QueryContext(ctx, `
+        SELECT 
+            e."id_записи",
+            e."Статус",
+            s."id_абонемента",
+            c."id_клиента",
+            c."ФИО"
+        FROM "Запись_на_групповую_тренировку" e
+        JOIN "Абонемент" s ON s."id_абонемента" = e."id_абонемента"
+        JOIN "Клиент"    c ON c."id_клиента"    = s."id_клиента"
+        WHERE e."id_групповой_тренировки" = $1
+        ORDER BY e."id_записи" DESC
+    `, id)
+    if err != nil {
+        return jsonError(c, 500, "Ошибка загрузки записей", err)
+    }
 	defer rows.Close()
 
 	type item struct {
@@ -673,10 +691,7 @@ func ListGroupEnrollments(c *fiber.Ctx) error {
 		}
 	}
 
-	return c.JSON(fiber.Map{
-		"success":     true,
-		"enrollments": list,
-	})
+    return jsonOK(c, fiber.Map{"enrollments": list})
 }
 
 // ====== helpers ======

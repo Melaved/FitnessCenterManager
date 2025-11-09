@@ -1,45 +1,48 @@
 package handlers
 
 import (
-	"database/sql"
-	"log"
-	"strconv"
-	"time"
+    "database/sql"
+    "log"
+    "strconv"
+    "time"
 
-	"fitness-center-manager/internal/database"
-	"fitness-center-manager/internal/models"
+    "fitness-center-manager/internal/database"
+    "fitness-center-manager/internal/models"
 
-	"github.com/gofiber/fiber/v2"
+    "github.com/gofiber/fiber/v2"
 )
 
 // ====== Страница со списком ======
 func GetSubscriptionsPage(c *fiber.Ctx) error {
-	db := database.GetDB()
+    db := database.GetDB()
 
-	rows, err := db.Query(`
-		SELECT s."id_абонемента",
-		       s."id_клиента",
-		       s."id_тарифа",
-		       s."Дата_начала",
-		       s."Дата_окончания",
-		       s."Статус",
-		       s."Цена",
-		       c."ФИО"              AS client_name,
-		       t."Название_тарифа"  AS tariff_name
-		FROM "Абонемент" s
-		JOIN "Клиент" c ON c."id_клиента" = s."id_клиента"
-		JOIN "Тариф"  t ON t."id_тарифа"  = s."id_тарифа"
-		ORDER BY s."id_абонемента" DESC
-	`)
-	if err != nil {
-		log.Printf("❌ subscriptions list error: %v", err)
-		return c.Render("subscriptions", fiber.Map{
-			"Title":         "Абонементы",
-			"Subscriptions": []models.Subscription{},
-			"Message":       "Не удалось загрузить данные абонементов",
-			"ExtraScripts":  templateScript(`/static/js/subscriptions.js`),
-		})
-	}
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+
+    rows, err := db.QueryContext(ctx, `
+        SELECT s."id_абонемента",
+               s."id_клиента",
+               s."id_тарифа",
+               s."Дата_начала",
+               s."Дата_окончания",
+               s."Статус",
+               s."Цена",
+               c."ФИО"              AS client_name,
+               t."Название_тарифа"  AS tariff_name
+        FROM "Абонемент" s
+        JOIN "Клиент" c ON c."id_клиента" = s."id_клиента"
+        JOIN "Тариф"  t ON t."id_тарифа"  = s."id_тарифа"
+        ORDER BY s."id_абонемента" DESC
+    `)
+    if err != nil {
+        log.Printf("❌ subscriptions list error: %v", err)
+        return c.Render("subscriptions", fiber.Map{
+            "Title":         "Абонементы",
+            "Subscriptions": []models.Subscription{},
+            "Message":       "Не удалось загрузить данные абонементов",
+            "ExtraScripts":  templateScript(`/static/js/subscriptions.js`),
+        })
+    }
 	defer rows.Close()
 
 	var subs []models.Subscription
@@ -63,11 +66,11 @@ func GetSubscriptionsPage(c *fiber.Ctx) error {
 
 	log.Printf("✅ загружено абонементов: %d", len(subs))
 
-	return c.Render("subscriptions", fiber.Map{
-		"Title":         "Абонементы",
-		"Subscriptions": subs,
-		"ExtraScripts":  templateScript(`/static/js/subscriptions.js`),
-	})
+    return c.Render("subscriptions", fiber.Map{
+        "Title":         "Абонементы",
+        "Subscriptions": subs,
+        "ExtraScripts":  templateScript(`/static/js/subscriptions.js`),
+    })
 }
 
 // ====== Create ======
@@ -104,34 +107,38 @@ func CreateSubscription(c *fiber.Ctx) error {
 
 	// цена
 	var price float64
-	if f.Price != "" {
-		p, err := strconv.ParseFloat(f.Price, 64)
-		if err != nil {
-			return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверная цена"})
-		}
-		price = p
-	} else {
-		if err := db.QueryRow(`SELECT "Стоимость" FROM "Тариф" WHERE "id_тарифа"=$1`, f.TariffID).Scan(&price); err != nil {
-			return c.Status(400).JSON(fiber.Map{"success": false, "error": "Не удалось получить стоимость тарифа"})
-		}
-	}
+    if f.Price != "" {
+        p, err := strconv.ParseFloat(f.Price, 64)
+        if err != nil {
+            return jsonError(c, 400, "Неверная цена", err)
+        }
+        price = p
+    } else {
+        ctx, cancel := withDBTimeout()
+        defer cancel()
+        if err := db.QueryRowContext(ctx, `SELECT "Стоимость" FROM "Тариф" WHERE "id_тарифа"=$1`, f.TariffID).Scan(&price); err != nil {
+            return jsonError(c, 400, "Не удалось получить стоимость тарифа", err)
+        }
+    }
 
 	if f.Status == "" {
 		f.Status = "Активен"
 	}
 
 	var id int
-	err = db.QueryRow(`
-		INSERT INTO "Абонемент" ("id_клиента","id_тарифа","Дата_начала","Дата_окончания","Статус","Цена")
-		VALUES ($1,$2,$3,$4,$5,$6)
-		RETURNING "id_абонемента"
-	`, f.ClientID, f.TariffID, start, end, f.Status, price).Scan(&id)
-	if err != nil {
-		log.Printf("❌ create sub: %v", err)
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка сохранения в БД"})
-	}
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    err = db.QueryRowContext(ctx, `
+        INSERT INTO "Абонемент" ("id_клиента","id_тарифа","Дата_начала","Дата_окончания","Статус","Цена")
+        VALUES ($1,$2,$3,$4,$5,$6)
+        RETURNING "id_абонемента"
+    `, f.ClientID, f.TariffID, start, end, f.Status, price).Scan(&id)
+    if err != nil {
+        log.Printf("❌ create sub: %v", err)
+        return jsonError(c, 500, "Ошибка сохранения в БД", err)
+    }
 
-	return c.JSON(fiber.Map{"success": true, "message": "Абонемент создан", "id": id})
+    return jsonOK(c, fiber.Map{"message": "Абонемент создан", "id": id})
 }
 
 // ====== Read one ======
@@ -154,34 +161,36 @@ func GetSubscriptionByID(c *fiber.Ctx) error {
 		TariffName string    `json:"tariff_name"`
 	}
 
-	err = db.QueryRow(`
-		SELECT s."id_абонемента",
-		       s."id_клиента",
-		       s."id_тарифа",
-		       s."Дата_начала",
-		       s."Дата_окончания",
-		       s."Статус",
-		       s."Цена",
-		       c."ФИО"              AS client_name,
-		       t."Название_тарифа"  AS tariff_name
-		FROM "Абонемент" s
-		JOIN "Клиент" c ON c."id_клиента" = s."id_клиента"
-		JOIN "Тариф"  t ON t."id_тарифа"  = s."id_тарифа"
-		WHERE s."id_абонемента"=$1
-	`, id).Scan(
-		&s.ID, &s.ClientID, &s.TariffID,
-		&s.StartDate, &s.EndDate,
-		&s.Status, &s.Price,
-		&s.ClientName, &s.TariffName,
-	)
-	if err == sql.ErrNoRows {
-		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Абонемент не найден"})
-	}
-	if err != nil {
-		log.Printf("❌ get sub: %v", err)
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка БД"})
-	}
-	return c.JSON(fiber.Map{"success": true, "subscription": s})
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    err = db.QueryRowContext(ctx, `
+        SELECT s."id_абонемента",
+               s."id_клиента",
+               s."id_тарифа",
+               s."Дата_начала",
+               s."Дата_окончания",
+               s."Статус",
+               s."Цена",
+               c."ФИО"              AS client_name,
+               t."Название_тарифа"  AS tariff_name
+        FROM "Абонемент" s
+        JOIN "Клиент" c ON c."id_клиента" = s."id_клиента"
+        JOIN "Тариф"  t ON t."id_тарифа"  = s."id_тарифа"
+        WHERE s."id_абонемента"=$1
+    `, id).Scan(
+        &s.ID, &s.ClientID, &s.TariffID,
+        &s.StartDate, &s.EndDate,
+        &s.Status, &s.Price,
+        &s.ClientName, &s.TariffName,
+    )
+    if err == sql.ErrNoRows {
+        return jsonError(c, 404, "Абонемент не найден", nil)
+    }
+    if err != nil {
+        log.Printf("❌ get sub: %v", err)
+        return jsonError(c, 500, "Ошибка БД", err)
+    }
+    return jsonOK(c, fiber.Map{"subscription": s})
 }
 
 // ====== Update ======
@@ -220,34 +229,38 @@ func UpdateSubscription(c *fiber.Ctx) error {
 	}
 
 	var price float64
-	if f.Price != "" {
-		p, err := strconv.ParseFloat(f.Price, 64)
-		if err != nil {
-			return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверная цена"})
-		}
-		price = p
-	} else {
-		// оставить прежнюю цену
-		db := database.GetDB()
-		if err := db.QueryRow(`SELECT "Цена" FROM "Абонемент" WHERE "id_абонемента"=$1`, id).Scan(&price); err != nil {
-			return c.Status(400).JSON(fiber.Map{"success": false, "error": "Не удалось получить текущую цену"})
-		}
-	}
+    if f.Price != "" {
+        p, err := strconv.ParseFloat(f.Price, 64)
+        if err != nil {
+            return jsonError(c, 400, "Неверная цена", err)
+        }
+        price = p
+    } else {
+        // оставить прежнюю цену
+        db := database.GetDB()
+        ctx, cancel := withDBTimeout()
+        defer cancel()
+        if err := db.QueryRowContext(ctx, `SELECT "Цена" FROM "Абонемент" WHERE "id_абонемента"=$1`, id).Scan(&price); err != nil {
+            return jsonError(c, 400, "Не удалось получить текущую цену", err)
+        }
+    }
 
-	db := database.GetDB()
-	res, err := db.Exec(`
-		UPDATE "Абонемент"
-		SET "id_клиента"=$2, "id_тарифа"=$3, "Дата_начала"=$4, "Дата_окончания"=$5, "Статус"=$6, "Цена"=$7
-		WHERE "id_абонемента"=$1
-	`, id, f.ClientID, f.TariffID, start, end, f.Status, price)
-	if err != nil {
-		log.Printf("❌ update sub: %v", err)
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка обновления в БД"})
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Абонемент не найден"})
-	}
-	return c.JSON(fiber.Map{"success": true, "message": "Абонемент обновлён"})
+    db := database.GetDB()
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    res, err := db.ExecContext(ctx, `
+        UPDATE "Абонемент"
+        SET "id_клиента"=$2, "id_тарифа"=$3, "Дата_начала"=$4, "Дата_окончания"=$5, "Статус"=$6, "Цена"=$7
+        WHERE "id_абонемента"=$1
+    `, id, f.ClientID, f.TariffID, start, end, f.Status, price)
+    if err != nil {
+        log.Printf("❌ update sub: %v", err)
+        return jsonError(c, 500, "Ошибка обновления в БД", err)
+    }
+    if n, _ := res.RowsAffected(); n == 0 {
+        return jsonError(c, 404, "Абонемент не найден", nil)
+    }
+    return jsonOK(c, fiber.Map{"message": "Абонемент обновлён"})
 }
 
 // ====== Delete ======
@@ -257,56 +270,60 @@ func DeleteSubscription(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
 	}
 
-	db := database.GetDB()
-	tx, err := db.Begin()
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Не удалось начать транзакцию"})
-	}
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback()
-		}
-	}()
+    db := database.GetDB()
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    tx, err := db.BeginTx(ctx, nil)
+    if err != nil {
+        return jsonError(c, 500, "Не удалось начать транзакцию", err)
+    }
+    defer func() {
+        if err != nil {
+            _ = tx.Rollback()
+        }
+    }()
 
-	// 1) Персональные тренировки этого абонемента
-	if _, err = tx.Exec(`DELETE FROM "Персональная_тренировка" WHERE "id_абонемента" = $1`, id); err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Невозможно удалить связанные персональные тренировки"})
-	}
+    // 1) Персональные тренировки этого абонемента
+    if _, err = tx.ExecContext(ctx, `DELETE FROM "Персональная_тренировка" WHERE "id_абонемента" = $1`, id); err != nil {
+        return jsonError(c, 500, "Невозможно удалить связанные персональные тренировки", err)
+    }
 
-	// 2) Записи на групповые тренировки этого абонемента
-	if _, err = tx.Exec(`DELETE FROM "Запись_на_групповую_тренировку" WHERE "id_абонемента" = $1`, id); err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Невозможно удалить групповые записи абонемента"})
-	}
+    // 2) Записи на групповые тренировки этого абонемента
+    if _, err = tx.ExecContext(ctx, `DELETE FROM "Запись_на_групповую_тренировку" WHERE "id_абонемента" = $1`, id); err != nil {
+        return jsonError(c, 500, "Невозможно удалить групповые записи абонемента", err)
+    }
 
-	// 3) Сам абонемент
-	res, err := tx.Exec(`DELETE FROM "Абонемент" WHERE "id_абонемента" = $1`, id)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка удаления абонемента"})
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Абонемент не найден"})
-	}
+    // 3) Сам абонемент
+    res, err := tx.ExecContext(ctx, `DELETE FROM "Абонемент" WHERE "id_абонемента" = $1`, id)
+    if err != nil {
+        return jsonError(c, 500, "Ошибка удаления абонемента", err)
+    }
+    if n, _ := res.RowsAffected(); n == 0 {
+        return jsonError(c, 404, "Абонемент не найден", nil)
+    }
 
-	if err = tx.Commit(); err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка фиксации транзакции"})
-	}
+    if err = tx.Commit(); err != nil {
+        return jsonError(c, 500, "Ошибка фиксации транзакции", err)
+    }
 
-	return c.JSON(fiber.Map{"success": true, "message": "Абонемент и связанные данные удалены"})
+    return jsonOK(c, fiber.Map{"message": "Абонемент и связанные данные удалены"})
 }
 
 
 // ====== API: тарифы для селекта ======
 func GetTariffsForSelect(c *fiber.Ctx) error {
-	db := database.GetDB()
-	rows, err := db.Query(`
-		SELECT "id_тарифа","Название_тарифа","Стоимость"
-		FROM "Тариф"
-		ORDER BY "id_тарифа"
-	`)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка чтения тарифов"})
-	}
-	defer rows.Close()
+    db := database.GetDB()
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    rows, err := db.QueryContext(ctx, `
+        SELECT "id_тарифа","Название_тарифа","Стоимость"
+        FROM "Тариф"
+        ORDER BY "id_тарифа"
+    `)
+    if err != nil {
+        return jsonError(c, 500, "Ошибка чтения тарифов", err)
+    }
+    defer rows.Close()
 
 	type t struct {
 		ID    int     `json:"id"`
@@ -320,5 +337,5 @@ func GetTariffsForSelect(c *fiber.Ctx) error {
 			list = append(list, item)
 		}
 	}
-	return c.JSON(fiber.Map{"success": true, "tariffs": list})
+    return jsonOK(c, fiber.Map{"tariffs": list})
 }

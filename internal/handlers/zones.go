@@ -98,9 +98,9 @@ func GetZones(c *fiber.Ctx) error {
 
 func GetZoneByID(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil || id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
-	}
+    if err != nil || id <= 0 {
+        return jsonError(c, 400, "Некорректный id", err)
+    }
 
 	db := database.GetDB()
 	var z models.Zone
@@ -112,14 +112,14 @@ func GetZoneByID(c *fiber.Ctx) error {
 			("Фото" IS NOT NULL) AS has_photo
 		FROM "Зона" WHERE "id_зоны"=$1
 	`, id).Scan(&z.ID, &z.Name, &z.Description, &z.Capacity, &z.Status, &z.HasPhoto)
-	switch {
-	case errors.Is(err, sql.ErrNoRows):
-		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Зона не найдена"})
-	case err != nil:
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "DB: ошибка чтения"})
-	}
+    switch {
+    case errors.Is(err, sql.ErrNoRows):
+        return jsonError(c, 404, "Зона не найдена", nil)
+    case err != nil:
+        return jsonError(c, 500, "DB: ошибка чтения", err)
+    }
 
-	return c.JSON(fiber.Map{"success": true, "zone": z})
+    return jsonOK(c, fiber.Map{"zone": z})
 }
 
 // ==== CREATE ====================================================================================
@@ -166,9 +166,9 @@ func CreateZone(c *fiber.Ctx) error {
 // UpdateZone — изменить зону по id (ожидается form-data или x-www-form-urlencoded)
 func UpdateZone(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil || id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
-	}
+    if err != nil || id <= 0 {
+        return jsonError(c, 400, "Некорректный id", err)
+    }
 
 	type form struct {
 		Name        string `form:"name"`
@@ -212,13 +212,13 @@ func ClearZonePhoto(c *fiber.Ctx) error {
 	ctx, cancel := withDBTimeout()
 	defer cancel()
 	res, err := db.ExecContext(ctx, `UPDATE "Зона" SET "Фото"=NULL WHERE "id_зоны"=$1`, id)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "DB: ошибка обновления"})
-	}
-	if rows, _ := res.RowsAffected(); rows == 0 {
-		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Зона не найдена"})
-	}
-	return c.JSON(fiber.Map{"success": true, "message": "Фото удалено"})
+    if err != nil {
+        return jsonError(c, 500, "DB: ошибка обновления", err)
+    }
+    if rows, _ := res.RowsAffected(); rows == 0 {
+        return jsonError(c, 404, "Зона не найдена", nil)
+    }
+    return jsonOK(c, fiber.Map{"message": "Фото удалено"})
 }
 
 // ==== DELETE ====================================================================================
@@ -226,22 +226,22 @@ func ClearZonePhoto(c *fiber.Ctx) error {
 // DeleteZone — удалить зону по id
 func DeleteZone(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil || id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
-	}
+    if err != nil || id <= 0 {
+        return jsonError(c, 400, "Некорректный id", err)
+    }
 	db := database.GetDB()
 
 	ctx, cancel := withDBTimeout()
 	defer cancel()
 	res, err := db.ExecContext(ctx, `DELETE FROM "Зона" WHERE "id_зоны"=$1`, id)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "DB: ошибка удаления"})
-	}
+    if err != nil {
+        return jsonError(c, 500, "DB: ошибка удаления", err)
+    }
 	aff, _ := res.RowsAffected()
-	if aff == 0 {
-		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Зона не найдена"})
-	}
-	return c.JSON(fiber.Map{"success": true, "message": "Зона удалена"})
+    if aff == 0 {
+        return jsonError(c, 404, "Зона не найдена", nil)
+    }
+    return jsonOK(c, fiber.Map{"message": "Зона удалена"})
 }
 
 // ==== upload/read photo =========================================================================
@@ -256,37 +256,27 @@ func UploadZonePhoto(c *fiber.Ctx) error {
 	}
 
 	fh, err := c.FormFile("photo")
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false, "error": "Файл не получен (ожидается form-data: photo)",
-		})
-	}
-	if fh.Size <= 0 || fh.Size > maxUpload {
-		return c.Status(fiber.StatusRequestEntityTooLarge).JSON(fiber.Map{
-			"success": false, "error": "Файл пустой или больше 5 МБ",
-		})
-	}
+    if err != nil {
+        return jsonError(c, fiber.StatusBadRequest, "Файл не получен (ожидается form-data: photo)", err)
+    }
+    if fh.Size <= 0 || fh.Size > maxUpload {
+        return jsonError(c, fiber.StatusRequestEntityTooLarge, "Файл пустой или больше 5 МБ", nil)
+    }
 
 	file, err := fh.Open()
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"success": false, "error": "Не удалось открыть файл",
-		})
-	}
+    if err != nil {
+        return jsonError(c, fiber.StatusInternalServerError, "Не удалось открыть файл", err)
+    }
 	defer file.Close()
 
 	lr := &io.LimitedReader{R: file, N: maxUpload + 1}
 	buf, err := io.ReadAll(lr)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"success": false, "error": "Ошибка чтения файла",
-		})
-	}
-	if int64(len(buf)) > maxUpload {
-		return c.Status(fiber.StatusRequestEntityTooLarge).JSON(fiber.Map{
-			"success": false, "error": "Файл превышает 5 МБ",
-		})
-	}
+    if err != nil {
+        return jsonError(c, fiber.StatusInternalServerError, "Ошибка чтения файла", err)
+    }
+    if int64(len(buf)) > maxUpload {
+        return jsonError(c, fiber.StatusRequestEntityTooLarge, "Файл превышает 5 МБ", nil)
+    }
 
 	head := buf
 	if len(head) > 512 {
@@ -295,28 +285,22 @@ func UploadZonePhoto(c *fiber.Ctx) error {
 	mime := http.DetectContentType(head)
 	switch mime {
 	case "image/jpeg", "image/png", "image/webp":
-	default:
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false, "error": "Разрешены JPEG/PNG/WebP",
-		})
-	}
+    default:
+        return jsonError(c, fiber.StatusBadRequest, "Разрешены JPEG/PNG/WebP", nil)
+    }
 
 	db := database.GetDB()
 	ctx, cancel := withDBTimeout()
 	defer cancel()
 	res, err := db.ExecContext(ctx, `UPDATE "Зона" SET "Фото"=$2 WHERE "id_зоны"=$1`, id, buf)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"success": false, "error": "DB: ошибка сохранения",
-		})
-	}
-	if rows, _ := res.RowsAffected(); rows == 0 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"success": false, "error": "Зона не найдена",
-		})
-	}
+    if err != nil {
+        return jsonError(c, fiber.StatusInternalServerError, "DB: ошибка сохранения", err)
+    }
+    if rows, _ := res.RowsAffected(); rows == 0 {
+        return jsonError(c, fiber.StatusNotFound, "Зона не найдена", nil)
+    }
 
-	return c.JSON(fiber.Map{"success": true, "message": "Фото загружено"})
+    return jsonOK(c, fiber.Map{"message": "Фото загружено"})
 }
 
 // GetZonePhoto — отдать фото зоны для <img>

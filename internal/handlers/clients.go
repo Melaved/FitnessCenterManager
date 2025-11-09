@@ -13,17 +13,22 @@ import (
 )
 
 func GetClients(c *fiber.Ctx) error {
-	db := database.GetDB()
+    db := database.GetDB()
 
-	// === параметры фильтра ===
-	q := strings.TrimSpace(c.Query("q"))         // строка поиска
-	onlyWithMed := c.Query("medical") == "1"     // чекбокс «только с мед. данными»
-	recent30 := c.Query("recent") == "1"         // «за 30 дней»
+    // === параметры фильтра ===
+    q := strings.TrimSpace(c.Query("q"))         // строка поиска
+    onlyWithMed := c.Query("medical") == "1"     // чекбокс «только с мед. данными»
+    recent30 := c.Query("recent") == "1"         // «за 30 дней»
+    // пагинация
+    page, _ := strconv.Atoi(c.Query("page"))
+    size, _ := strconv.Atoi(c.Query("size"))
+    if page <= 0 { page = 1 }
+    if size <= 0 || size > 100 { size = 20 }
 
-	// === динамический WHERE ===
-	where := []string{}
-	args := []any{}
-	paramCount := 0
+    // === динамический WHERE ===
+    where := []string{}
+    args := []any{}
+    paramCount := 0
 
 	nextPH := func() string {
 		paramCount++
@@ -48,30 +53,44 @@ func GetClients(c *fiber.Ctx) error {
 		where = append(where, `c."Дата_регистрации" >= NOW()::date - INTERVAL '30 days'`)
 	}
 
-	// === запрос ===
-	query := `
-		SELECT
-			v."id_клиента",
-			v."ФИО",
-			v."Номер_телефона",
-			c."Дата_рождения",
-			c."Дата_регистрации",
-			c."Медицинские_данные",
-			v.age,
-			COALESCE(v.subs_total, 0) AS subscriptions_count,
-			CASE WHEN v.subs_active > 0 THEN 'Активен' ELSE 'Неактивен' END AS active_status
-		FROM public.view_client_enriched v
-		JOIN public."Клиент" c USING ("id_клиента")
-	`
-	if len(where) > 0 {
-		query += " WHERE " + strings.Join(where, " AND ")
-	}
-	query += ` ORDER BY v."ФИО"`
+    // === базовый SELECT ===
+    baseSelect := `
+        SELECT
+            v."id_клиента",
+            v."ФИО",
+            v."Номер_телефона",
+            c."Дата_рождения",
+            c."Дата_регистрации",
+            c."Медицинские_данные",
+            v.age,
+            COALESCE(v.subs_total, 0) AS subscriptions_count,
+            CASE WHEN v.subs_active > 0 THEN 'Активен' ELSE 'Неактивен' END AS active_status
+        FROM public.view_client_enriched v
+        JOIN public."Клиент" c USING ("id_клиента")
+    `
+    whereSQL := ""
+    if len(where) > 0 {
+        whereSQL = " WHERE " + strings.Join(where, " AND ")
+    }
 
-	ctx, cancel := withDBTimeout()
-	defer cancel()
+    // === общее количество для пагинации ===
+    countSQL := "SELECT COUNT(*) FROM (" + baseSelect + whereSQL + ") t"
+    ctxCount, cancelCount := withDBTimeout()
+    var total int
+    if err := db.QueryRowContext(ctxCount, countSQL, args...).Scan(&total); err != nil {
+        cancelCount()
+        return c.Status(500).SendString("Ошибка подсчёта записей: " + err.Error())
+    }
+    cancelCount()
 
-	rows, err := db.QueryContext(ctx, query, args...)
+    // === финальный запрос с LIMIT/OFFSET ===
+    query := baseSelect + whereSQL + ` ORDER BY v."ФИО" LIMIT $` + strconv.Itoa(paramCount+1) + ` OFFSET $` + strconv.Itoa(paramCount+2)
+    args = append(args, size, (page-1)*size)
+
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+
+    rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		log.Printf("Database error: %v", err)
 		return c.Status(500).SendString("Ошибка получения клиентов: " + err.Error())
@@ -103,16 +122,25 @@ func GetClients(c *fiber.Ctx) error {
 		return c.Status(500).SendString("Ошибка при обработке результатов: " + err.Error())
 	}
 
-	return c.Render("clients", fiber.Map{
-		"Title":   "Клиенты",
-		"Clients": clients,
-		"Filter": fiber.Map{
-			"q":       q,
-			"medical": onlyWithMed,
-			"recent":  recent30,
-		},
-		"ExtraScripts": template.HTML(`<script src="/static/js/clients.js"></script>`),
-	})
+    return c.Render("clients", fiber.Map{
+        "Title":   "Клиенты",
+        "Clients": clients,
+        "Filter": fiber.Map{
+            "q":       q,
+            "medical": onlyWithMed,
+            "recent":  recent30,
+        },
+        "Pagination": fiber.Map{
+            "page": page,
+            "size": size,
+            "total": total,
+            "has_prev": page > 1,
+            "has_next": page*size < total,
+            "prev": page-1,
+            "next": page+1,
+        },
+        "ExtraScripts": template.HTML(`<script src="/static/js/clients.js"></script>`),
+    })
 }
 
 
@@ -181,10 +209,7 @@ func CreateClient(c *fiber.Ctx) error {
     
     if err != nil {
         log.Printf("❌ Ошибка сохранения клиента: %v", err)
-        return c.Status(500).JSON(fiber.Map{
-            "success": false,
-            "error":   "Ошибка сохранения в базу данных: " + err.Error(),
-        })
+        return jsonError(c, 500, "Ошибка сохранения в базу данных", err)
     }
     
     log.Printf("✅ Клиент создан! ID: %d", clientID)
@@ -223,16 +248,12 @@ func GetClientByID(c *fiber.Ctx) error {
         &client.RegisterDate,
         &client.MedicalData,
     )
-    
+
     if err != nil {
-        return c.Status(404).JSON(fiber.Map{
-            "success": false,
-            "error":   "Клиент не найден",
-        })
+        return jsonError(c, 404, "Клиент не найден", err)
     }
     
-    return c.JSON(fiber.Map{
-        "success": true,
+    return jsonOK(c, fiber.Map{
         "client": fiber.Map{
             "id": client.ID,
             "fio": client.FIO,
@@ -288,10 +309,7 @@ func UpdateClient(c *fiber.Ctx) error {
     `, form.FIO, form.Phone, birthDate, form.MedicalData, id)
     
     if err != nil {
-        return c.Status(500).JSON(fiber.Map{
-            "success": false,
-            "error":   "Ошибка обновления: " + err.Error(),
-        })
+        return jsonError(c, 500, "Ошибка обновления", err)
     }
     
     rowsAffected, _ := result.RowsAffected()
@@ -327,48 +345,33 @@ func DeleteClient(c *fiber.Ctx) error{
     defer cancel()
     err = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM Абонемент WHERE id_клиента = $1`, clientID).Scan(&subscriptionCount)
     if err != nil {
-        return c.Status(500).JSON(fiber.Map{
-            "success": false,
-            "error": "Ошибка проверки данных клиента",
-        })
+        return jsonError(c, 500, "Ошибка проверки данных клиента", err)
     }
     if subscriptionCount > 0{
-        return c.Status(400).JSON(fiber.Map{
-            "success":false,
-            "error": "Невозможно удалить клиента у него есть активные абонементы: Сначала удалите абонементы",
-        })
+        return jsonError(c, 400, "Невозможно удалить клиента: есть активные абонементы", nil)
     }
 
     ctx, cancel = withDBTimeout()
     defer cancel()
     result, err := db.ExecContext(ctx, `DELETE FROM Клиент WHERE id_клиента = $1`,clientID)
     if err != nil{
-        return c.Status(500).JSON(fiber.Map{
-            "success": false,
-            "error": "Ошибка удаления клиента" + err.Error(),
-        })
+        return jsonError(c, 500, "Ошибка удаления клиента", err)
     }
 
     rowsAffected, _ := result.RowsAffected()
     if rowsAffected == 0{
-        return c.Status(404).JSON(fiber.Map{
-            "success": false,
-            "error": "Клиент не найден",
-        })
+        return jsonError(c, 404, "Клиент не найден", nil)
     }
 
-    return c.JSON(fiber.Map{
-        "success": true,
-        "message": "Клиент успешно удален",
-    })
+    return jsonOK(c, fiber.Map{"message": "Клиент успешно удален"})
 }
 
 func GetClientsForSelect(c *fiber.Ctx) error {
 	db := database.GetDB()
-	rows, err := db.Query(`SELECT "id_клиента","ФИО" FROM "Клиент" ORDER BY "id_клиента"`)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка чтения клиентов"})
-	}
+    rows, err := db.Query(`SELECT "id_клиента","ФИО" FROM "Клиент" ORDER BY "id_клиента"`)
+    if err != nil {
+        return jsonError(c, 500, "Ошибка чтения клиентов", err)
+    }
 	defer rows.Close()
 
 	type item struct {
@@ -382,5 +385,5 @@ func GetClientsForSelect(c *fiber.Ctx) error {
 			list = append(list, v)
 		}
 	}
-	return c.JSON(fiber.Map{"success": true, "clients": list})
+    return jsonOK(c, fiber.Map{"clients": list})
 }

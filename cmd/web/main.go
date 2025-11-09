@@ -88,11 +88,11 @@ func setupRoutes(app *fiber.App) {
 	app.Delete("/subscriptions/:id", handlers.DeleteSubscription)
 
 	// тренеры
-	app.Get("/trainers", handlers.GetTrainersPage)      // HTML страница
-	app.Post("/trainers", handlers.CreateTrainer)       // создать
-	app.Get("/trainers/:id", handlers.GetTrainerByID)   // JSON для формы редактирования
-	app.Put("/trainers/:id", handlers.UpdateTrainer)    // обновить
-	app.Delete("/trainers/:id", handlers.DeleteTrainer) // удалить
+	app.Get("/trainers", handlers.GetTrainersPage)  
+	app.Post("/trainers", handlers.CreateTrainer)
+	app.Get("/trainers/:id", handlers.GetTrainerByID) 
+	app.Put("/trainers/:id", handlers.UpdateTrainer)
+	app.Delete("/trainers/:id", handlers.DeleteTrainer)
 
 	// групповые
 	app.Get("/trainings", handlers.GetTrainingsPage)

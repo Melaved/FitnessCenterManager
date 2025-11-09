@@ -76,12 +76,14 @@ func normRepairStatus(s string) string {
 // ---------------- API: зоны для селекта ----------------
 
 func GetZonesForSelect(c *fiber.Ctx) error {
-	db := database.GetDB()
-	rows, err := db.Query(`SELECT "id_зоны","Название" FROM "Зона" ORDER BY "id_зоны"`)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка чтения зон: " + err.Error()})
-	}
-	defer rows.Close()
+    db := database.GetDB()
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    rows, err := db.QueryContext(ctx, `SELECT "id_зоны","Название" FROM "Зона" ORDER BY "id_зоны"`)
+    if err != nil {
+        return jsonError(c, 500, "Ошибка чтения зон", err)
+    }
+    defer rows.Close()
 
 	type z struct {
 		ID   int    `json:"id"`
@@ -94,75 +96,78 @@ func GetZonesForSelect(c *fiber.Ctx) error {
 			list = append(list, it)
 		}
 	}
-	if err := rows.Err(); err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка курсора зон: " + err.Error()})
-	}
-	return c.JSON(fiber.Map{"success": true, "zones": list})
+    if err := rows.Err(); err != nil {
+        return jsonError(c, 500, "Ошибка курсора зон", err)
+    }
+    return jsonOK(c, fiber.Map{"zones": list})
 }
 
 // ---------------- Получить оборудование по ID (для модалки) ----------------
 
 func GetEquipmentByID(c *fiber.Ctx) error {
-	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil || id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
-	}
-	db := database.GetDB()
-	var (
-		zoneID                 int
-		name, status, zoneName string
-		purchase, lastTO       sql.NullTime
-	)
-	err = db.QueryRow(`
-		SELECT e."id_зоны",
-		       e."Название",
-		       e."Дата_покупки",
-		       e."Дата_последнего_ТО",
-		       e."Статус",
-		       z."Название" AS zone_name
-		FROM "Оборудование" e
-		JOIN "Зона" z ON z."id_зоны" = e."id_зоны"
-		WHERE e."id_оборудования"=$1
-	`, id).Scan(&zoneID, &name, &purchase, &lastTO, &status, &zoneName)
-	if errors.Is(err, sql.ErrNoRows) {
-		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Оборудование не найдено"})
-	}
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка БД: " + err.Error()})
-	}
-	return c.JSON(fiber.Map{
-		"success": true,
-		"item": fiber.Map{
-			"ID":              id,
-			"ZoneID":          zoneID,
-			"Name":            name,
-			"PurchaseDate":    dateYMD(purchase),
-			"LastServiceDate": dateYMD(lastTO),
-			"Status":          status,
-			"ZoneName":        zoneName,
-		},
-	})
+    id, err := strconv.Atoi(c.Params("id"))
+    if err != nil || id <= 0 {
+        return jsonError(c, 400, "Некорректный id", err)
+    }
+    db := database.GetDB()
+    var (
+        zoneID                 int
+        name, status, zoneName string
+        purchase, lastTO       sql.NullTime
+    )
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    err = db.QueryRowContext(ctx, `
+        SELECT e."id_зоны",
+               e."Название",
+               e."Дата_покупки",
+               e."Дата_последнего_ТО",
+               e."Статус",
+               z."Название" AS zone_name
+        FROM "Оборудование" e
+        JOIN "Зона" z ON z."id_зоны" = e."id_зоны"
+        WHERE e."id_оборудования"=$1
+    `, id).Scan(&zoneID, &name, &purchase, &lastTO, &status, &zoneName)
+    if errors.Is(err, sql.ErrNoRows) {
+        return jsonError(c, 404, "Оборудование не найдено", nil)
+    }
+    if err != nil {
+        return jsonError(c, 500, "Ошибка БД", err)
+    }
+    return jsonOK(c, fiber.Map{
+        "item": fiber.Map{
+            "ID":              id,
+            "ZoneID":          zoneID,
+            "Name":            name,
+            "PurchaseDate":    dateYMD(purchase),
+            "LastServiceDate": dateYMD(lastTO),
+            "Status":          status,
+            "ZoneName":        zoneName,
+        },
+    })
 }
 
 // ---------------- Страница оборудования ----------------
 
 func GetEquipmentPage(c *fiber.Ctx) error {
-	db := database.GetDB()
+    db := database.GetDB()
 
-	// Оборудование
-	rows, err := db.Query(`
-		SELECT e."id_оборудования",
-		       e."id_зоны",
-		       e."Название",
-		       e."Дата_покупки",
-		       e."Дата_последнего_ТО",
-		       e."Статус",
-		       (e."Фото" IS NOT NULL) AS has_photo,
-		       z."Название" AS zone_name
-		FROM "Оборудование" e
-		JOIN "Зона" z ON z."id_зоны" = e."id_зоны"
-		ORDER BY e."id_оборудования"
-	`)
+    // Оборудование
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    rows, err := db.QueryContext(ctx, `
+        SELECT e."id_оборудования",
+               e."id_зоны",
+               e."Название",
+               e."Дата_покупки",
+               e."Дата_последнего_ТО",
+               e."Статус",
+               (e."Фото" IS NOT NULL) AS has_photo,
+               z."Название" AS zone_name
+        FROM "Оборудование" e
+        JOIN "Зона" z ON z."id_зоны" = e."id_зоны"
+        ORDER BY e."id_оборудования"
+    `)
 	if err != nil {
 		log.Printf("equipment list error: %v", err)
 		return c.Render("equipment", fiber.Map{
@@ -200,20 +205,20 @@ func GetEquipmentPage(c *fiber.Ctx) error {
 	_ = rows.Err()
 
 	// Последние заявки на ремонт
-	r2, err := db.Query(`
-		SELECT r."id_заявки",
-		       r."id_оборудования",
-		       r."Дата_создания",
-		       r."Описание_проблемы",
-		       r."Статус",
-		       r."Приоритет",
-		       (r."Фото" IS NOT NULL) AS has_photo,
-		       e."Название" AS eq_name
-		FROM "Заявка_на_ремонт" r
-		JOIN "Оборудование" e ON e."id_оборудования" = r."id_оборудования"
-		ORDER BY r."id_заявки" DESC
-		LIMIT 10
-	`)
+    r2, err := db.QueryContext(ctx, `
+        SELECT r."id_заявки",
+               r."id_оборудования",
+               r."Дата_создания",
+               r."Описание_проблемы",
+               r."Статус",
+               r."Приоритет",
+               (r."Фото" IS NOT NULL) AS has_photo,
+               e."Название" AS eq_name
+        FROM "Заявка_на_ремонт" r
+        JOIN "Оборудование" e ON e."id_оборудования" = r."id_оборудования"
+        ORDER BY r."id_заявки" DESC
+        LIMIT 10
+    `)
 	var repairs []fiber.Map
 	if err == nil {
 		defer r2.Close()
@@ -285,25 +290,27 @@ func CreateEquipment(c *fiber.Ctx) error {
 	}
 
 	db := database.GetDB()
-	var id int
-	err := db.QueryRow(`
-		INSERT INTO "Оборудование" ("id_зоны","Название","Дата_покупки","Дата_последнего_ТО","Статус")
-		VALUES ($1,$2,$3,$4,$5)
-		RETURNING "id_оборудования"
-	`, f.ZoneID, f.Name, nullableTimeArg(purchase), nullableTimeArg(lastTO), f.Status).Scan(&id)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка сохранения: " + err.Error()})
-	}
-	return c.JSON(fiber.Map{"success": true, "message": "Оборудование создано", "id": id})
+    var id int
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    err := db.QueryRowContext(ctx, `
+        INSERT INTO "Оборудование" ("id_зоны","Название","Дата_покупки","Дата_последнего_ТО","Статус")
+        VALUES ($1,$2,$3,$4,$5)
+        RETURNING "id_оборудования"
+    `, f.ZoneID, f.Name, nullableTimeArg(purchase), nullableTimeArg(lastTO), f.Status).Scan(&id)
+    if err != nil {
+        return jsonError(c, 500, "Ошибка сохранения", err)
+    }
+    return jsonOK(c, fiber.Map{"message": "Оборудование создано", "id": id})
 }
 
 // ---------------- Update ----------------
 
 func UpdateEquipment(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil || id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
-	}
+    if err != nil || id <= 0 {
+        return jsonError(c, 400, "Некорректный id", err)
+    }
 	type formT struct {
 		ZoneID   int    `form:"zone_id"`
 		Name     string `form:"name"`
@@ -312,12 +319,12 @@ func UpdateEquipment(c *fiber.Ctx) error {
 		Status   string `form:"status"`
 	}
 	var f formT
-	if err := c.BodyParser(&f); err != nil {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверные данные формы"})
-	}
-	if f.ZoneID <= 0 || f.Name == "" || f.Status == "" {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Заполните обязательные поля"})
-	}
+    if err := c.BodyParser(&f); err != nil {
+        return jsonError(c, 400, "Неверные данные формы", err)
+    }
+    if f.ZoneID <= 0 || f.Name == "" || f.Status == "" {
+        return jsonError(c, 400, "Заполните обязательные поля", nil)
+    }
 	f.Status = normEqStatus(f.Status)
 
 	var purchase, lastTO sql.NullTime
@@ -333,67 +340,71 @@ func UpdateEquipment(c *fiber.Ctx) error {
 	}
 
 	db := database.GetDB()
-	res, err := db.Exec(`
-		UPDATE "Оборудование"
-		SET "id_зоны"=$2, "Название"=$3, "Дата_покупки"=$4, "Дата_последнего_ТО"=$5, "Статус"=$6
-		WHERE "id_оборудования"=$1
-	`, id, f.ZoneID, f.Name, nullableTimeArg(purchase), nullableTimeArg(lastTO), f.Status)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка обновления: " + err.Error()})
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Оборудование не найдено"})
-	}
-	return c.JSON(fiber.Map{"success": true, "message": "Оборудование обновлено"})
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    res, err := db.ExecContext(ctx, `
+        UPDATE "Оборудование"
+        SET "id_зоны"=$2, "Название"=$3, "Дата_покупки"=$4, "Дата_последнего_ТО"=$5, "Статус"=$6
+        WHERE "id_оборудования"=$1
+    `, id, f.ZoneID, f.Name, nullableTimeArg(purchase), nullableTimeArg(lastTO), f.Status)
+    if err != nil {
+        return jsonError(c, 500, "Ошибка обновления", err)
+    }
+    if n, _ := res.RowsAffected(); n == 0 {
+        return jsonError(c, 404, "Оборудование не найдено", nil)
+    }
+    return jsonOK(c, fiber.Map{"message": "Оборудование обновлено"})
 }
 
 // ---------------- Delete ----------------
 
 func DeleteEquipment(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil || id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
-	}
-	db := database.GetDB()
-	res, err := db.Exec(`DELETE FROM "Оборудование" WHERE "id_оборудования"=$1`, id)
-	if err != nil {
-		// возможно, FK из "Заявка_на_ремонт"
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка удаления: " + err.Error()})
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Оборудование не найдено"})
-	}
-	return c.JSON(fiber.Map{"success": true, "message": "Удалено"})
+    if err != nil || id <= 0 {
+        return jsonError(c, 400, "Некорректный id", err)
+    }
+    db := database.GetDB()
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    res, err := db.ExecContext(ctx, `DELETE FROM "Оборудование" WHERE "id_оборудования"=$1`, id)
+    if err != nil {
+        // возможно, FK из "Заявка_на_ремонт"
+        return jsonError(c, 500, "Ошибка удаления", err)
+    }
+    if n, _ := res.RowsAffected(); n == 0 {
+        return jsonError(c, 404, "Оборудование не найдено", nil)
+    }
+    return jsonOK(c, fiber.Map{"message": "Удалено"})
 }
 
 // ---------------- Фото оборудования ----------------
 
 func UploadEquipmentPhoto(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil || id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
-	}
+    if err != nil || id <= 0 {
+        return jsonError(c, 400, "Некорректный id", err)
+    }
 	fh, err := c.FormFile("photo")
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Файл не получен"})
-	}
-	if fh.Size <= 0 || fh.Size > maxUpload {
-		return c.Status(413).JSON(fiber.Map{"success": false, "error": "Файл пустой или больше 5 МБ"})
-	}
+    if err != nil {
+        return jsonError(c, 400, "Файл не получен", err)
+    }
+    if fh.Size <= 0 || fh.Size > maxUpload {
+        return jsonError(c, 413, "Файл пустой или больше 5 МБ", nil)
+    }
 	f, err := fh.Open()
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Не удалось открыть файл"})
-	}
+    if err != nil {
+        return jsonError(c, 500, "Не удалось открыть файл", err)
+    }
 	defer f.Close()
 
 	lr := &io.LimitedReader{R: f, N: maxUpload + 1}
 	buf, err := io.ReadAll(lr)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка чтения файла"})
-	}
-	if int64(len(buf)) > maxUpload {
-		return c.Status(413).JSON(fiber.Map{"success": false, "error": "Файл превышает 5 МБ"})
-	}
+    if err != nil {
+        return jsonError(c, 500, "Ошибка чтения файла", err)
+    }
+    if int64(len(buf)) > maxUpload {
+        return jsonError(c, 413, "Файл превышает 5 МБ", nil)
+    }
 	head := buf
 	if len(head) > 512 {
 		head = head[:512]
@@ -401,16 +412,18 @@ func UploadEquipmentPhoto(c *fiber.Ctx) error {
 	ct := http.DetectContentType(head)
 	switch ct {
 	case "image/jpeg", "image/png", "image/webp":
-	default:
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Разрешены JPEG/PNG/WebP"})
-	}
+    default:
+        return jsonError(c, 400, "Разрешены JPEG/PNG/WebP", nil)
+    }
 
-	db := database.GetDB()
-	_, err = db.Exec(`UPDATE "Оборудование" SET "Фото"=$2 WHERE "id_оборудования"=$1`, id, buf)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "DB: ошибка сохранения"})
-	}
-	return c.JSON(fiber.Map{"success": true, "message": "Фото загружено"})
+    db := database.GetDB()
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    _, err = db.ExecContext(ctx, `UPDATE "Оборудование" SET "Фото"=$2 WHERE "id_оборудования"=$1`, id, buf)
+    if err != nil {
+        return jsonError(c, 500, "DB: ошибка сохранения", err)
+    }
+    return jsonOK(c, fiber.Map{"message": "Фото загружено"})
 }
 
 func GetEquipmentPhoto(c *fiber.Ctx) error {
@@ -418,9 +431,11 @@ func GetEquipmentPhoto(c *fiber.Ctx) error {
 	if err != nil || id <= 0 {
 		return c.Status(400).SendString("Некорректный id")
 	}
-	db := database.GetDB()
-	var img []byte
-	err = db.QueryRow(`SELECT "Фото" FROM "Оборудование" WHERE "id_оборудования"=$1`, id).Scan(&img)
+    db := database.GetDB()
+    var img []byte
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    err = db.QueryRowContext(ctx, `SELECT "Фото" FROM "Оборудование" WHERE "id_оборудования"=$1`, id).Scan(&img)
 	if errors.Is(err, sql.ErrNoRows) {
 		return c.Status(404).SendString("Оборудование не найдено")
 	}
@@ -450,15 +465,17 @@ func DeleteEquipmentPhoto(c *fiber.Ctx) error {
 	if err != nil || id <= 0 {
 		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
 	}
-	db := database.GetDB()
-	res, err := db.Exec(`UPDATE "Оборудование" SET "Фото"=NULL WHERE "id_оборудования"=$1`, id)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "DB: ошибка обновления"})
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Оборудование не найдено"})
-	}
-	return c.JSON(fiber.Map{"success": true, "message": "Фото удалено"})
+    db := database.GetDB()
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    res, err := db.ExecContext(ctx, `UPDATE "Оборудование" SET "Фото"=NULL WHERE "id_оборудования"=$1`, id)
+    if err != nil {
+        return jsonError(c, 500, "DB: ошибка обновления", err)
+    }
+    if n, _ := res.RowsAffected(); n == 0 {
+        return jsonError(c, 404, "Оборудование не найдено", nil)
+    }
+    return jsonOK(c, fiber.Map{"message": "Фото удалено"})
 }
 
 // ---------------- Заявка на ремонт ----------------
@@ -507,18 +524,20 @@ func CreateRepairRequest(c *fiber.Ctx) error {
 	}
 
 	// ВАЖНО: не указываем колонку "Статус" — сработает DEFAULT в БД, который соответствует CHECK
-	db := database.GetDB()
-	var id int
-	err := db.QueryRow(`
-		INSERT INTO "Заявка_на_ремонт"
-		("id_оборудования","Дата_создания","Описание_проблемы","Приоритет","Фото")
-		VALUES ($1, NOW(), $2, $3, $4)
-		RETURNING "id_заявки"
-	`, eqID, desc, priority, nullablePhoto(photo)).Scan(&id)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка создания заявки: " + err.Error()})
-	}
-	return c.JSON(fiber.Map{"success": true, "message": "Заявка создана", "id": id})
+    db := database.GetDB()
+    var id int
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    err := db.QueryRowContext(ctx, `
+        INSERT INTO "Заявка_на_ремонт"
+        ("id_оборудования","Дата_создания","Описание_проблемы","Приоритет","Фото")
+        VALUES ($1, NOW(), $2, $3, $4)
+        RETURNING "id_заявки"
+    `, eqID, desc, priority, nullablePhoto(photo)).Scan(&id)
+    if err != nil {
+        return jsonError(c, 500, "Ошибка создания заявки", err)
+    }
+    return jsonOK(c, fiber.Map{"message": "Заявка создана", "id": id})
 }
 
 // ---------- Удалить заявку на ремонт ----------
@@ -527,37 +546,41 @@ func DeleteRepairRequest(c *fiber.Ctx) error {
 	if err != nil || id <= 0 {
 		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
 	}
-	db := database.GetDB()
-	res, err := db.Exec(`DELETE FROM "Заявка_на_ремонт" WHERE "id_заявки"=$1`, id)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка удаления: " + err.Error()})
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Заявка не найдена"})
-	}
-	return c.JSON(fiber.Map{"success": true, "message": "Заявка удалена"})
+    db := database.GetDB()
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    res, err := db.ExecContext(ctx, `DELETE FROM "Заявка_на_ремонт" WHERE "id_заявки"=$1`, id)
+    if err != nil {
+        return jsonError(c, 500, "Ошибка удаления", err)
+    }
+    if n, _ := res.RowsAffected(); n == 0 {
+        return jsonError(c, 404, "Заявка не найдена", nil)
+    }
+    return jsonOK(c, fiber.Map{"message": "Заявка удалена"})
 }
 
 
 func GetLatestRepairs(c *fiber.Ctx) error {
-	db := database.GetDB()
-	rows, err := db.Query(`
-		SELECT r."id_заявки",
-		       r."id_оборудования",
-		       r."Дата_создания",
-		       r."Описание_проблемы",
-		       r."Статус",
-		       r."Приоритет",
-		       (r."Фото" IS NOT NULL) AS has_photo,
-		       e."Название" AS eq_name
-		FROM "Заявка_на_ремонт" r
-		JOIN "Оборудование" e ON e."id_оборудования" = r."id_оборудования"
-		ORDER BY r."id_заявки" DESC
-		LIMIT 10
-	`)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка загрузки заявок: " + err.Error()})
-	}
+    db := database.GetDB()
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    rows, err := db.QueryContext(ctx, `
+        SELECT r."id_заявки",
+               r."id_оборудования",
+               r."Дата_создания",
+               r."Описание_проблемы",
+               r."Статус",
+               r."Приоритет",
+               (r."Фото" IS NOT NULL) AS has_photo,
+               e."Название" AS eq_name
+        FROM "Заявка_на_ремонт" r
+        JOIN "Оборудование" e ON e."id_оборудования" = r."id_оборудования"
+        ORDER BY r."id_заявки" DESC
+        LIMIT 10
+    `)
+    if err != nil {
+        return jsonError(c, 500, "Ошибка загрузки заявок", err)
+    }
 	defer rows.Close()
 	type row struct {
 		ID            int       `json:"id"`
@@ -576,7 +599,7 @@ func GetLatestRepairs(c *fiber.Ctx) error {
 			list = append(list, r)
 		}
 	}
-	return c.JSON(fiber.Map{"success": true, "repairs": list})
+    return jsonOK(c, fiber.Map{"repairs": list})
 }
 
 func GetRepairPhoto(c *fiber.Ctx) error {
@@ -584,9 +607,11 @@ func GetRepairPhoto(c *fiber.Ctx) error {
 	if err != nil || id <= 0 {
 		return c.Status(400).SendString("Некорректный id")
 	}
-	db := database.GetDB()
-	var img []byte
-	err = db.QueryRow(`SELECT "Фото" FROM "Заявка_на_ремонт" WHERE "id_заявки"=$1`, id).Scan(&img)
+    db := database.GetDB()
+    var img []byte
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    err = db.QueryRowContext(ctx, `SELECT "Фото" FROM "Заявка_на_ремонт" WHERE "id_заявки"=$1`, id).Scan(&img)
 	if errors.Is(err, sql.ErrNoRows) {
 		return c.Status(404).SendString("Заявка не найдена")
 	}
