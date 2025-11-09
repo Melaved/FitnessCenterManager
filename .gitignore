@@ -29,7 +29,6 @@ logs/
 # Go
 /bin/
 /pkg/
-/go.sum
 
 # Системные файлы
 .DS_Store
