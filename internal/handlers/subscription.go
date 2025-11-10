@@ -339,3 +339,4 @@ func GetTariffsForSelect(c *fiber.Ctx) error {
 	}
     return jsonOK(c, fiber.Map{"tariffs": list})
 }
+
