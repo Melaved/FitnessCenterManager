@@ -69,9 +69,17 @@ func main() {
 
 // setupRoutes — маршруты приложения
 func setupRoutes(app *fiber.App) {
-	// страницы
-	app.Get("/", handlers.Dashboard)
-	app.Get("/about", handlers.About)
+    // страницы
+    app.Get("/", handlers.Dashboard)
+    app.Get("/about", handlers.About)
+    // отчетность: запросы и операции (без добавления новых файлов)
+    app.Post("/about/query/clients-after-date", handlers.ReportClientsAfterDate)
+    app.Post("/about/query/subscriptions-by-status", handlers.ReportSubscriptionsByStatus)
+    app.Post("/about/query/revenue-by-tariff", handlers.ReportRevenueByTariff)
+    app.Post("/about/query/zones-min-equip", handlers.ReportZonesWithMinEquipment)
+    app.Post("/about/op/insert-zone", handlers.ReportInsertZone)
+    app.Post("/about/op/update-zone-status", handlers.ReportUpdateZoneStatus)
+    app.Post("/about/op/delete-zone", handlers.ReportDeleteZone)
 
 	// клиенты
 	app.Get("/clients", handlers.GetClients)

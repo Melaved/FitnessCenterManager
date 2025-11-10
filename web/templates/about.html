@@ -1,22 +1,292 @@
-<h1>ℹ️ О программе</h1>
+<h1>📈 Отчетность</h1>
 
-<div class="row mt-4">
-  <div class="col-md-8">
+<div class="row g-4 mt-2">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">4.2.1 Выборки: с условиями</h5>
+        <form id="form-clients-after-date">
+          <div class="row g-2 align-items-end">
+            <div class="col-7">
+              <label class="form-label">Клиенты, зарегистрированные после даты</label>
+              <input class="form-control" type="date" name="date" required />
+            </div>
+            <div class="col-5">
+              <button class="btn btn-primary w-100" type="submit">Выполнить</button>
+            </div>
+          </div>
+        </form>
+        <div class="mt-3" id="res-clients-after-date"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">4.2.1 Выборки: из нескольких таблиц</h5>
+        <form id="form-subs-by-status">
+          <div class="row g-2 align-items-end">
+            <div class="col-7">
+              <label class="form-label">Статус абонемента</label>
+              <input class="form-control" name="status" placeholder="Активен" />
+            </div>
+            <div class="col-5">
+              <button class="btn btn-primary w-100" type="submit">Выполнить</button>
+            </div>
+          </div>
+        </form>
+        <div class="mt-3" id="res-subs-by-status"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-12">
     <div class="card">
       <div class="card-body">
-        <h5 class="card-title">Фитнес-центр: Система управления</h5>
-        <p class="card-text">
-          Веб-приложение для управления фитнес-центром, разработанное в рамках лабораторной работы.
-        </p>
+        <h5 class="card-title">4.2.1 Агрегации + полный SELECT</h5>
+        <form id="form-revenue">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+              <label class="form-label">Дата начала</label>
+              <input class="form-control" type="date" name="start_date" required />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Дата окончания</label>
+              <input class="form-control" type="date" name="end_date" required />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Мин. выручка (₽)</label>
+              <input class="form-control" type="number" step="0.01" min="0" name="min_revenue" placeholder="0" />
+            </div>
+            <div class="col-md-3">
+              <button class="btn btn-success w-100" type="submit">Посчитать</button>
+            </div>
+          </div>
+        </form>
+        <div class="mt-3" id="res-revenue"></div>
+      </div>
+    </div>
+  </div>
 
-        <h6>🔧 Технологии:</h6>
-        <ul>
-          <li><strong>Backend:</strong> Go, Fiber framework</li>
-          <li><strong>База данных:</strong> PostgreSQL</li>
-          <li><strong>Frontend:</strong> HTML5, CSS, JavaScript</li>
-          <li><strong>Шаблоны:</strong> Go HTML templates с layout</li>
-        </ul>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">4.2.2 Подзапросы</h5>
+        <form id="form-zones-min-equip">
+          <div class="row g-2 align-items-end">
+            <div class="col-7">
+              <label class="form-label">Мин. кол-во оборудования</label>
+              <input class="form-control" type="number" min="0" name="min_count" value="1" />
+            </div>
+            <div class="col-5">
+              <button class="btn btn-primary w-100" type="submit">Выполнить</button>
+            </div>
+          </div>
+        </form>
+        <div class="mt-3" id="res-zones-min-equip"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">4.2.3 Операторы изменения данных</h5>
+        <div class="mb-3">
+          <h6>INSERT Зона</h6>
+          <form id="form-insert-zone" class="row g-2">
+            <div class="col-md-4"><input class="form-control" name="name" placeholder="Название" required/></div>
+            <div class="col-md-4"><input class="form-control" name="description" placeholder="Описание"/></div>
+            <div class="col-md-2"><input class="form-control" type="number" min="1" name="capacity" placeholder="Вместимость" required/></div>
+            <div class="col-md-2">
+              <select class="form-select" name="status">
+                <option>Доступна</option>
+                <option>На ремонте</option>
+                <option>Закрыта</option>
+              </select>
+            </div>
+            <div class="col-12"><button class="btn btn-success" type="submit">Добавить</button></div>
+          </form>
+          <div class="mt-2" id="res-insert-zone"></div>
+        </div>
+
+        <div class="mb-3">
+          <h6>UPDATE Статус зоны (по названию)</h6>
+          <form id="form-update-zone" class="row g-2">
+            <div class="col-md-5"><input class="form-control" name="name" placeholder="Название зоны" required/></div>
+            <div class="col-md-5">
+              <select class="form-select" name="status">
+                <option>Доступна</option>
+                <option>На ремонте</option>
+                <option>Закрыта</option>
+              </select>
+            </div>
+            <div class="col-md-4"><button class="btn btn-warning w-100" type="submit">Обновить</button></div>
+          </form>
+          <div class="mt-2" id="res-update-zone"></div>
+        </div>
+
+        <div>
+          <h6>DELETE Зона (по названию)</h6>
+          <form id="form-delete-zone" class="row g-2">
+            <div class="col-md-6"><input class="form-control" name="name" placeholder="Название зоны" required/></div>
+            <div class="col-md-6"><button class="btn btn-danger w-100" type="submit">Удалить</button></div>
+          </form>
+          <div class="mt-2" id="res-delete-zone"></div>
+        </div>
       </div>
     </div>
   </div>
 </div>
+
+<script>
+  function clear(el){ while(el.firstChild) el.removeChild(el.firstChild); }
+  function showAlert(containerId, msg, type='info'){
+    const c = document.getElementById(containerId); clear(c);
+    const div = document.createElement('div');
+    div.className = `alert alert-${type}`;
+    div.textContent = msg;
+    c.appendChild(div);
+  }
+  function asDate(s){
+    if(!s) return '';
+    if(typeof s === 'string'){ return s.substring(0,10); }
+    try { return new Date(s).toISOString().substring(0,10); } catch{ return '' }
+  }
+  function money(n){
+    const num = Number(n||0);
+    return num.toLocaleString('ru-RU', {style:'currency', currency:'RUB', maximumFractionDigits:2});
+  }
+  function renderTable(containerId, columns, rows){
+    const c = document.getElementById(containerId); clear(c);
+    if(!rows || rows.length===0){
+      c.innerHTML = '<div class="text-muted">Нет данных</div>';
+      return;
+    }
+    const wrap = document.createElement('div'); wrap.className = 'table-responsive';
+    const table = document.createElement('table'); table.className = 'table table-sm table-striped align-middle mb-0';
+    const thead = document.createElement('thead'); const trh = document.createElement('tr');
+    for(const col of columns){ const th=document.createElement('th'); th.textContent = col.title; trh.appendChild(th); }
+    thead.appendChild(trh); table.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    for(const r of rows){
+      const tr = document.createElement('tr');
+      for(const col of columns){
+        const td = document.createElement('td');
+        const v = r[col.key];
+        td.textContent = col.format? col.format(v, r): (v ?? '');
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody); wrap.appendChild(table);
+    const meta = document.createElement('div'); meta.className = 'small text-muted mt-2'; meta.textContent = `Строк: ${rows.length}`;
+    c.appendChild(wrap); c.appendChild(meta);
+  }
+  async function postForm(url, formEl){
+    const fd = new FormData(formEl);
+    const res = await fetch(url, { method: 'POST', body: fd });
+    const data = await res.json();
+    return data;
+  }
+
+  // Клиенты после даты
+  document.getElementById('form-clients-after-date')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const cId = 'res-clients-after-date'; showAlert(cId, 'Выполнение...', 'secondary');
+    try{
+      const data = await postForm('/about/query/clients-after-date', e.target);
+      if(!data.success) return showAlert(cId, data.error||'Ошибка', 'danger');
+      renderTable(cId, [
+        {key: 'id_клиента', title:'ID'},
+        {key: 'фио', title:'ФИО'},
+        {key: 'дата_регистрации', title:'Дата регистрации', format: asDate},
+      ], data.rows||[]);
+    }catch(err){ showAlert(cId, 'Ошибка: '+(err?.message||err), 'danger'); }
+  });
+
+  // Абонементы по статусу
+  document.getElementById('form-subs-by-status')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const cId = 'res-subs-by-status'; showAlert(cId, 'Выполнение...', 'secondary');
+    try{
+      const data = await postForm('/about/query/subscriptions-by-status', e.target);
+      if(!data.success) return showAlert(cId, data.error||'Ошибка', 'danger');
+      renderTable(cId, [
+        {key: 'id_абонемента', title:'ID'},
+        {key: 'фио_клиента', title:'Клиент'},
+        {key: 'название_тарифа', title:'Тариф'},
+        {key: 'дата_начала', title:'Начало', format: asDate},
+        {key: 'дата_окончания', title:'Окончание', format: asDate},
+        {key: 'статус', title:'Статус'},
+        {key: 'цена', title:'Цена', format: money},
+      ], data.rows||[]);
+    }catch(err){ showAlert(cId, 'Ошибка: '+(err?.message||err), 'danger'); }
+  });
+
+  // Выручка по тарифам
+  document.getElementById('form-revenue')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const cId = 'res-revenue'; showAlert(cId, 'Выполнение...', 'secondary');
+    try{
+      const data = await postForm('/about/query/revenue-by-tariff', e.target);
+      if(!data.success) return showAlert(cId, data.error||'Ошибка', 'danger');
+      renderTable(cId, [
+        {key: 'тариф', title:'Тариф'},
+        {key: 'количество', title:'Кол-во'},
+        {key: 'выручка', title:'Выручка', format: money},
+      ], data.rows||[]);
+    }catch(err){ showAlert(cId, 'Ошибка: '+(err?.message||err), 'danger'); }
+  });
+
+  // Зоны с минимум оборудованием
+  document.getElementById('form-zones-min-equip')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const cId = 'res-zones-min-equip'; showAlert(cId, 'Выполнение...', 'secondary');
+    try{
+      const data = await postForm('/about/query/zones-min-equip', e.target);
+      if(!data.success) return showAlert(cId, data.error||'Ошибка', 'danger');
+      renderTable(cId, [
+        {key: 'id_зоны', title:'ID'},
+        {key: 'название', title:'Название'},
+        {key: 'количество_оборудования', title:'Оборудование'},
+      ], data.rows||[]);
+    }catch(err){ showAlert(cId, 'Ошибка: '+(err?.message||err), 'danger'); }
+  });
+
+  // INSERT зона
+  document.getElementById('form-insert-zone')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const cId = 'res-insert-zone'; showAlert(cId, 'Выполнение...', 'secondary');
+    try{
+      const data = await postForm('/about/op/insert-zone', e.target);
+      if(!data.success) return showAlert(cId, data.error||'Ошибка', 'danger');
+      showAlert(cId, `${data.message}. ID: ${data.zone_id}`, 'success');
+      e.target.reset();
+    }catch(err){ showAlert(cId, 'Ошибка: '+(err?.message||err), 'danger'); }
+  });
+
+  // UPDATE зона по названию
+  document.getElementById('form-update-zone')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const cId = 'res-update-zone'; showAlert(cId, 'Выполнение...', 'secondary');
+    try{
+      const data = await postForm('/about/op/update-zone-status', e.target);
+      if(!data.success) return showAlert(cId, data.error||'Ошибка', 'danger');
+      showAlert(cId, data.message||'Готово', 'success');
+    }catch(err){ showAlert(cId, 'Ошибка: '+(err?.message||err), 'danger'); }
+  });
+
+  // DELETE зона по названию
+  document.getElementById('form-delete-zone')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const cId = 'res-delete-zone'; showAlert(cId, 'Выполнение...', 'secondary');
+    try{
+      const data = await postForm('/about/op/delete-zone', e.target);
+      if(!data.success) return showAlert(cId, data.error||'Ошибка', 'danger');
+      showAlert(cId, data.message||'Удалено', 'success');
+      e.target.reset();
+    }catch(err){ showAlert(cId, 'Ошибка: '+(err?.message||err), 'danger'); }
+  });
+</script>
