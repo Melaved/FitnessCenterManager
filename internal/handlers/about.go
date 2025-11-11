@@ -272,6 +272,74 @@ func ReportInsertZone(c *fiber.Ctx) error {
     return jsonOK(c, fiber.Map{"message": "Зона добавлена", "zone_id": zoneID})
 }
 
+// POST /about/query/personal-finished
+// Параметры: start_date, end_date (YYYY-MM-DD)
+// Возвращает список завершённых персональных тренировок за период и агрегаты
+func ReportPersonalFinished(c *fiber.Ctx) error {
+    startS := strings.TrimSpace(c.FormValue("start_date"))
+    endS := strings.TrimSpace(c.FormValue("end_date"))
+    if startS == "" || endS == "" {
+        return jsonError(c, 400, "Укажите период дат", nil)
+    }
+    start, err := time.Parse("2006-01-02", startS)
+    if err != nil { return jsonError(c, 400, "Неверная дата начала", err) }
+    end, err := time.Parse("2006-01-02", endS)
+    if err != nil { return jsonError(c, 400, "Неверная дата окончания", err) }
+    if end.Before(start) {
+        return jsonError(c, 400, "Дата окончания раньше даты начала", nil)
+    }
+
+    db := database.GetDB()
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+
+    // Фильтруем по статусу "Завершена" и дате начала в пределах периода (включая конец дня)
+    rows, err := db.QueryContext(ctx, `
+        SELECT id, client_fio, trainer_fio, starts_at, duration_minutes, price_effective
+        FROM public.v_personal_training_enriched
+        WHERE status = 'Завершена'
+          AND starts_at >= $1
+          AND starts_at < ($2::date + INTERVAL '1 day')
+        ORDER BY starts_at DESC, id DESC
+    `, start, end)
+    if err != nil {
+        return jsonError(c, 500, "DB: ошибка выборки персональных тренировок", err)
+    }
+    defer rows.Close()
+
+    type rowT struct {
+        ID        int       `json:"id"`
+        Client    string    `json:"клиент"`
+        Trainer   string    `json:"тренер"`
+        Starts    time.Time `json:"начало"`
+        Duration  int       `json:"длительность_мин"`
+        Price     float64   `json:"стоимость"`
+    }
+    var out []rowT
+    var totalCount int
+    var totalSum float64
+    for rows.Next() {
+        var r rowT
+        if err := rows.Scan(&r.ID, &r.Client, &r.Trainer, &r.Starts, &r.Duration, &r.Price); err != nil {
+            return jsonError(c, 500, "Ошибка чтения строки", err)
+        }
+        out = append(out, r)
+        totalCount++
+        totalSum += r.Price
+    }
+    if err := rows.Err(); err != nil {
+        return jsonError(c, 500, "Ошибка курсора", err)
+    }
+
+    return jsonOK(c, fiber.Map{
+        "rows": out,
+        "summary": fiber.Map{
+            "количество": totalCount,
+            "сумма": totalSum,
+        },
+    })
+}
+
 // POST /about/op/update-zone-status
 func ReportUpdateZoneStatus(c *fiber.Ctx) error {
     name := strings.TrimSpace(c.FormValue("name"))

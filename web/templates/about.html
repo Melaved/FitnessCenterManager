@@ -69,6 +69,33 @@
     </div>
   </div>
 
+  <div class="col-lg-12">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">Проведенные персональные тренировки</h5>
+        <form id="form-personal-finished">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+              <label class="form-label">Дата начала</label>
+              <input class="form-control" type="date" name="start_date" required />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Дата окончания</label>
+              <input class="form-control" type="date" name="end_date" required />
+            </div>
+            <div class="col-md-4">
+              <button class="btn btn-success w-100" type="submit">Посчитать</button>
+            </div>
+          </div>
+        </form>
+        <div class="mt-3" id="res-personal-finished">
+          <div id="res-personal-finished-summary"></div>
+          <div id="res-personal-finished-table"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="col-lg-6">
     <div class="card h-100">
       <div class="card-body">
@@ -237,7 +264,44 @@
         {key: 'количество', title:'Кол-во'},
         {key: 'выручка', title:'Выручка', format: money},
       ], data.rows||[]);
+      // Показываем полную сумму по всем строкам
+      const total = (data.rows||[]).reduce((acc, r) => acc + Number(r['выручка']||0), 0);
+      const c = document.getElementById(cId);
+      const sumEl = document.createElement('div');
+      sumEl.className = 'mt-2 fw-bold';
+      sumEl.textContent = 'Итого: ' + money(total);
+      c.appendChild(sumEl);
     }catch(err){ showAlert(cId, 'Ошибка: '+(err?.message||err), 'danger'); }
+  });
+
+  // Завершенные персональные тренировки за период
+  document.getElementById('form-personal-finished')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const wrapId = 'res-personal-finished';
+    const sumId = 'res-personal-finished-summary';
+    const tblId = 'res-personal-finished-table';
+    showAlert(sumId, 'Выполнение...', 'secondary');
+    clear(document.getElementById(tblId));
+    try{
+      const data = await postForm('/about/query/personal-finished', e.target);
+      if(!data.success) return showAlert(sumId, data.error||'Ошибка', 'danger');
+      const rows = data.rows||[];
+      const totalCount = data.summary?.['количество'] ?? rows.length;
+      const totalSum = data.summary?.['сумма'] ?? rows.reduce((a, r)=> a + Number(r['стоимость']||0), 0);
+      const sumWrap = document.getElementById(sumId); clear(sumWrap);
+      const meta = document.createElement('div');
+      meta.className = 'alert alert-info m-0';
+      meta.textContent = `Проведено тренировок: ${totalCount}. Сумма: ${money(totalSum)}`;
+      sumWrap.appendChild(meta);
+      renderTable(tblId, [
+        {key: 'id', title:'ID'},
+        {key: 'клиент', title:'Клиент'},
+        {key: 'тренер', title:'Тренер'},
+        {key: 'начало', title:'Начало', format: asDate},
+        {key: 'длительность_мин', title:'Длительность (мин)'},
+        {key: 'стоимость', title:'Стоимость', format: money},
+      ], rows);
+    }catch(err){ showAlert(sumId, 'Ошибка: '+(err?.message||err), 'danger'); }
   });
 
   // Зоны с минимум оборудованием

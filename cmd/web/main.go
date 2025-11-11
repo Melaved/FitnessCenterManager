@@ -77,10 +77,11 @@ func setupRoutes(app *fiber.App) {
     // страницы
     app.Get("/", handlers.Dashboard)
     app.Get("/about", handlers.About)
-    // отчетность: запросы и операции (без добавления новых файлов)
+    // отчетность: запросы и операции
     app.Post("/about/query/clients-after-date", handlers.ReportClientsAfterDate)
     app.Post("/about/query/subscriptions-by-status", handlers.ReportSubscriptionsByStatus)
     app.Post("/about/query/revenue-by-tariff", handlers.ReportRevenueByTariff)
+    app.Post("/about/query/personal-finished", handlers.ReportPersonalFinished)
     app.Post("/about/query/zones-min-equip", handlers.ReportZonesWithMinEquipment)
     app.Post("/about/op/insert-zone", handlers.ReportInsertZone)
     app.Post("/about/op/update-zone-status", handlers.ReportUpdateZoneStatus)
@@ -198,7 +199,8 @@ func setupRoutes(app *fiber.App) {
 	// API v1 — отчёты (алиасы под REST-префиксом)
 	app.Post("/api/v1/reports/clients-after-date", handlers.ReportClientsAfterDate)
 	app.Post("/api/v1/reports/subscriptions-by-status", handlers.ReportSubscriptionsByStatus)
-	app.Post("/api/v1/reports/revenue-by-tariff", handlers.ReportRevenueByTariff)
+    app.Post("/api/v1/reports/revenue-by-tariff", handlers.ReportRevenueByTariff)
+    app.Post("/api/v1/reports/personal-finished", handlers.ReportPersonalFinished)
 	app.Post("/api/v1/reports/zones-min-equip", handlers.ReportZonesWithMinEquipment)
 	app.Post("/api/v1/reports/ops/insert-zone", handlers.ReportInsertZone)
 	app.Post("/api/v1/reports/ops/update-zone-status", handlers.ReportUpdateZoneStatus)
