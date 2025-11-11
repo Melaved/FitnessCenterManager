@@ -115,6 +115,23 @@ document.querySelectorAll('.edit-group-btn').forEach(btn => {
   });
 });
 
+  // Сабмит формы редактирования групповой тренировки (PUT)
+  document.getElementById('editGroupForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const id = document.getElementById('editGroupId')?.value;
+    if (!id) { alert('❌ Не найден ID тренировки'); return; }
+    const btn = e.submitter ?? form.querySelector('button[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = '⌛...'; }
+    try {
+      const resp = await fetch(`/group-trainings/${id}`, { method: 'PUT', body: new FormData(form) });
+      const data = await parseJsonOrThrow(resp);
+      if (data.success) { bootstrap.Modal.getInstance(document.getElementById('editGroupModal'))?.hide(); location.reload(); }
+      else alert('❌ ' + (data.error || 'Ошибка обновления'));
+    } catch (er) { alert('❌ ' + er.message); }
+    finally { if (btn) { btn.disabled = false; btn.textContent = 'Сохранить'; } }
+  });
+
   // ===== Групповые: удаление =====
   document.querySelectorAll('.delete-group-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -182,6 +199,23 @@ document.querySelectorAll('.edit-personal-btn').forEach(btn => {
     }
   });
 });
+
+  // Сабмит формы редактирования персональной тренировки (PUT)
+  document.getElementById('editPersonalForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const id = document.getElementById('epId')?.value;
+    if (!id) { alert('❌ Не найден ID тренировки'); return; }
+    const btn = e.submitter ?? form.querySelector('button[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = '⌛...'; }
+    try {
+      const resp = await fetch(`/personal-trainings/${id}`, { method: 'PUT', body: new FormData(form) });
+      const data = await parseJsonOrThrow(resp);
+      if (data.success) { bootstrap.Modal.getInstance(document.getElementById('editPersonalModal'))?.hide(); location.reload(); }
+      else alert('❌ ' + (data.error || 'Ошибка обновления'));
+    } catch (er) { alert('❌ ' + er.message); }
+    finally { if (btn) { btn.disabled = false; btn.textContent = 'Сохранить'; } }
+  });
 
   // ===== Запись на групповую =====
   document.querySelectorAll('.enroll-btn').forEach(btn => {
