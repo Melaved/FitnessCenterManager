@@ -537,6 +537,8 @@ func CreateRepairRequest(c *fiber.Ctx) error {
     if err != nil {
         return jsonError(c, 500, "Ошибка создания заявки", err)
     }
+    // Перевести оборудование в статус "На ремонте"
+    _, _ = db.ExecContext(ctx, `UPDATE "Оборудование" SET "Статус"=$2 WHERE "id_оборудования"=$1`, eqID, "На ремонте")
     return jsonOK(c, fiber.Map{"message": "Заявка создана", "id": id})
 }
 
@@ -557,6 +559,128 @@ func DeleteRepairRequest(c *fiber.Ctx) error {
         return jsonError(c, 404, "Заявка не найдена", nil)
     }
     return jsonOK(c, fiber.Map{"message": "Заявка удалена"})
+}
+
+
+// ---------- Обновить заявку на ремонт ----------
+func UpdateRepairRequest(c *fiber.Ctx) error {
+    id, err := strconv.Atoi(c.Params("id"))
+    if err != nil || id <= 0 {
+        return jsonError(c, 400, "Некорректный id", err)
+    }
+    type formT struct {
+        EquipmentID int    `form:"equipment_id"`
+        Description string `form:"description"`
+        Status      string `form:"status"`
+        Priority    string `form:"priority"`
+    }
+    var f formT
+    if err := c.BodyParser(&f); err != nil {
+        return jsonError(c, 400, "Неверные данные формы", err)
+    }
+    f.Description = strings.TrimSpace(f.Description)
+    if f.Description == "" {
+        return jsonError(c, 400, "Описание обязательно", nil)
+    }
+    // нормализуем статус заявки и приоритет
+    st := normRepairStatus(f.Status)
+    pr := strings.TrimSpace(f.Priority)
+    switch pr {
+    case "Низкий", "Средний", "Высокий":
+    default:
+        pr = "Средний"
+    }
+
+    // собираем динамический UPDATE
+    sets := []string{"\"Описание_проблемы\"=$2", "\"Статус\"=$3", "\"Приоритет\"=$4"}
+    args := []any{id, f.Description, st, pr}
+    if f.EquipmentID > 0 {
+        sets = append(sets, "\"id_оборудования\"=$5")
+        args = append(args, f.EquipmentID)
+    }
+    sqlUpd := "UPDATE \"Заявка_на_ремонт\" SET " + strings.Join(sets, ", ") + " WHERE \"id_заявки\"=$1"
+
+    db := database.GetDB()
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    res, err := db.ExecContext(ctx, sqlUpd, args...)
+    if err != nil {
+        return jsonError(c, 500, "Ошибка обновления заявки", err)
+    }
+    if n, _ := res.RowsAffected(); n == 0 {
+        return jsonError(c, 404, "Заявка не найдена", nil)
+    }
+    // Обновление статуса оборудования в зависимости от статуса заявки
+    // Определим equipmentID: если не передан — прочитаем из БД
+    eqID := f.EquipmentID
+    if eqID <= 0 {
+        _ = db.QueryRowContext(ctx, `SELECT "id_оборудования" FROM "Заявка_на_ремонт" WHERE "id_заявки"=$1`, id).Scan(&eqID)
+    }
+    if eqID > 0 {
+        if st == "Открыта" || st == "В работе" {
+            // Переводим оборудование в "На ремонте"
+            _, _ = db.ExecContext(ctx, `UPDATE "Оборудование" SET "Статус"='На ремонте' WHERE "id_оборудования"=$1`, eqID)
+        } else if st == "Закрыта" {
+            // Если нет других активных заявок, вернуть статус в "Исправен"
+            var cnt int
+            _ = db.QueryRowContext(ctx, `
+                SELECT COUNT(*) FROM "Заявка_на_ремонт"
+                WHERE "id_оборудования"=$1 AND "Статус" IN ('Открыта','В работе')
+            `, eqID).Scan(&cnt)
+            if cnt == 0 {
+                _, _ = db.ExecContext(ctx, `UPDATE "Оборудование" SET "Статус"='Исправен' WHERE "id_оборудования"=$1`, eqID)
+            }
+        }
+    }
+    return jsonOK(c, fiber.Map{"message": "Заявка обновлена"})
+}
+
+// ---------- Загрузить/заменить фото заявки ----------
+func UploadRepairPhoto(c *fiber.Ctx) error {
+    id, err := strconv.Atoi(c.Params("id"))
+    if err != nil || id <= 0 {
+        return jsonError(c, 400, "Некорректный id", err)
+    }
+    fh, err := c.FormFile("photo")
+    if err != nil {
+        return jsonError(c, fiber.StatusBadRequest, "Файл не получен (photo)", err)
+    }
+    if fh.Size <= 0 || fh.Size > maxUpload {
+        return jsonError(c, fiber.StatusRequestEntityTooLarge, "Файл пустой или больше 5 МБ", nil)
+    }
+    f, err := fh.Open()
+    if err != nil {
+        return jsonError(c, fiber.StatusInternalServerError, "Не удалось открыть файл", err)
+    }
+    defer f.Close()
+    lr := &io.LimitedReader{R: f, N: maxUpload + 1}
+    buf, err := io.ReadAll(lr)
+    if err != nil {
+        return jsonError(c, fiber.StatusInternalServerError, "Ошибка чтения файла", err)
+    }
+    if int64(len(buf)) > maxUpload {
+        return jsonError(c, fiber.StatusRequestEntityTooLarge, "Файл превышает 5 МБ", nil)
+    }
+    head := buf
+    if len(head) > 512 { head = head[:512] }
+    ct := http.DetectContentType(head)
+    switch ct {
+    case "image/jpeg", "image/png", "image/webp":
+    default:
+        return jsonError(c, fiber.StatusBadRequest, "Разрешены JPEG/PNG/WebP", nil)
+    }
+
+    db := database.GetDB()
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    res, err := db.ExecContext(ctx, `UPDATE "Заявка_на_ремонт" SET "Фото"=$2 WHERE "id_заявки"=$1`, id, buf)
+    if err != nil {
+        return jsonError(c, fiber.StatusInternalServerError, "DB: ошибка сохранения", err)
+    }
+    if n, _ := res.RowsAffected(); n == 0 {
+        return jsonError(c, fiber.StatusNotFound, "Заявка не найдена", nil)
+    }
+    return jsonOK(c, fiber.Map{"message": "Фото загружено"})
 }
 
 

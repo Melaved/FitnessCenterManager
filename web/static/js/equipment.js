@@ -254,7 +254,7 @@ document.querySelectorAll('.repair-delete-btn').forEach(btn => {
         alert('❌ ' + err.message);
       }
     });
-  });
+});
 
 // показать фото заявки
 document.querySelectorAll('.view-repair-photo-btn').forEach(btn => {
@@ -278,4 +278,75 @@ document.querySelectorAll('.view-repair-photo-btn').forEach(btn => {
 
     new bootstrap.Modal(modalEl).show();
   });
+});
+
+// Загрузить фото к существующей заявке
+document.querySelectorAll('.upload-repair-photo-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const id = btn.getAttribute('data-repair-id');
+    document.getElementById('uploadRepairId').value = id;
+    new bootstrap.Modal(document.getElementById('uploadRepairPhotoModal')).show();
+  });
+});
+
+document.getElementById('uploadRepairPhotoForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.currentTarget;
+  const id = document.getElementById('uploadRepairId').value;
+  const btn = form.querySelector('button[type="submit"]');
+  btn.disabled = true; btn.textContent = '⌛ Загрузка...';
+  try {
+    const resp = await fetch(`/repairs/${id}/upload-photo`, { method: 'POST', body: new FormData(form) });
+    const data = await parseJsonOrThrow(resp);
+    if (data.success) {
+      bootstrap.Modal.getInstance(document.getElementById('uploadRepairPhotoModal')).hide();
+      form.reset();
+      location.reload();
+    } else {
+      alert('❌ ' + (data.error || 'Не удалось загрузить фото'));
+    }
+  } catch (err) {
+    alert('❌ ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Загрузить';
+  }
+});
+
+// Редактировать заявку
+document.querySelectorAll('.edit-repair-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const id = btn.getAttribute('data-repair-id');
+    const status = btn.getAttribute('data-repair-status') || 'В работе';
+    const priority = btn.getAttribute('data-repair-priority') || 'Средний';
+    const desc = btn.getAttribute('data-repair-desc') || '';
+    document.getElementById('editRepairId').value = id;
+    document.getElementById('editRepairDesc').value = desc;
+    document.getElementById('editRepairStatus').value = status;
+    document.getElementById('editRepairPriority').value = priority;
+    new bootstrap.Modal(document.getElementById('editRepairModal')).show();
+  });
+});
+
+document.getElementById('editRepairForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.currentTarget;
+  const id = document.getElementById('editRepairId').value;
+  const btn = form.querySelector('button[type="submit"]');
+  btn.disabled = true; btn.textContent = '⌛ Сохранение...';
+  try {
+    const fd = new FormData(form);
+    const resp = await fetch(`/repairs/${id}`, { method: 'PUT', body: fd });
+    const data = await parseJsonOrThrow(resp);
+    if (data.success) {
+      bootstrap.Modal.getInstance(document.getElementById('editRepairModal')).hide();
+      form.reset();
+      location.reload();
+    } else {
+      alert('❌ ' + (data.error || 'Не удалось обновить заявку'));
+    }
+  } catch (err) {
+    alert('❌ ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Сохранить';
+  }
 });

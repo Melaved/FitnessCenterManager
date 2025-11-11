@@ -120,16 +120,18 @@
                         <td>{{.Status}}</td>
                         <td class="text-center">
                             {{if .HasPhoto}}
-                            <button class="btn btn-sm btn-outline-secondary view-repair-photo-btn"
-                                data-repair-id="{{.ID}}" title="Просмотреть фото">
-                                👁
-                            </button>
+                              <div class="btn-group">
+                                <button class="btn btn-sm btn-outline-secondary view-repair-photo-btn" data-repair-id="{{.ID}}" title="Просмотреть фото">👁</button>
+                                <button class="btn btn-sm btn-outline-secondary upload-repair-photo-btn" data-repair-id="{{.ID}}" title="Заменить фото">📷</button>
+                              </div>
                             {{else}}
-                            <span class="text-muted">—</span>
+                              <button class="btn btn-sm btn-outline-secondary upload-repair-photo-btn" data-repair-id="{{.ID}}" title="Загрузить фото">📷</button>
                             {{end}}
                         </td>
 
                         <td class="text-center text-nowrap">
+                            <button class="btn btn-sm btn-outline-primary edit-repair-btn" data-repair-id="{{.ID}}" data-repair-status="{{.Status}}" data-repair-priority="{{.Priority}}" data-repair-desc="{{.Description}}"
+                                title="Редактировать заявку">✏️</button>
                             <button class="btn btn-sm btn-outline-danger repair-delete-btn" data-repair-id="{{.ID}}"
                                 title="Удалить заявку">
                                 🗑️
@@ -334,3 +336,69 @@
         </div>
     </div>
 </div>
+
+<!-- Модалка: загрузить фото к заявке -->
+<div class="modal fade" id="uploadRepairPhotoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Загрузить фото к заявке</h5>
+        <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+      </div>
+      <form id="uploadRepairPhotoForm" enctype="multipart/form-data">
+        <input type="hidden" id="uploadRepairId" name="id">
+        <div class="modal-body">
+          <input type="file" class="form-control" name="photo" accept="image/jpeg,image/png,image/webp" required>
+          <div class="form-text">JPEG/PNG/WebP, до 5 МБ</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Отмена</button>
+          <button class="btn btn-primary" type="submit">Загрузить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  </div>
+
+<!-- Модалка: редактировать заявку -->
+<div class="modal fade" id="editRepairModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Редактировать заявку</h5>
+        <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+      </div>
+      <form id="editRepairForm">
+        <input type="hidden" id="editRepairId">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Описание *</label>
+            <textarea class="form-control" name="description" id="editRepairDesc" rows="3" required></textarea>
+          </div>
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label">Статус</label>
+              <select class="form-select" name="status" id="editRepairStatus">
+                <option value="Открыта">Открыта</option>
+                <option value="В работе">В работе</option>
+                <option value="Закрыта">Закрыта</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Приоритет</label>
+              <select class="form-select" name="priority" id="editRepairPriority">
+                <option value="Низкий">Низкий</option>
+                <option value="Средний">Средний</option>
+                <option value="Высокий">Высокий</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Отмена</button>
+          <button class="btn btn-primary" type="submit">Сохранить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  </div>

@@ -154,6 +154,8 @@ func setupRoutes(app *fiber.App) {
 	// заявки на ремонт
 	app.Post("/repairs", handlers.CreateRepairRequest)
 	app.Get("/repairs/:id/photo", handlers.GetRepairPhoto)
+	app.Post("/repairs/:id/upload-photo", handlers.UploadRepairPhoto)
+	app.Put("/repairs/:id", handlers.UpdateRepairRequest)
 	app.Delete("/repairs/:id", handlers.DeleteRepairRequest)
 
 }
