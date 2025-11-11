@@ -318,11 +318,6 @@ func CreateClient(c *fiber.Ctx) error {
     
     db := database.GetDB()
     
-    // ОТЛАДОЧНАЯ ИНФОРМАЦИЯ
-    // redact sensitive medical data in logs
-    log.Printf("📝 Данные для сохранения: FIO=%s, Phone=%s", 
-        form.FIO, form.Phone)
-    
     var clientID int
     // Если MedicalData пустая строка, она сохранится как NULL
     ctx, cancel := withDBTimeout()
@@ -496,7 +491,6 @@ func APIv1CreateClient(c *fiber.Ctx) error {
     if err != nil {
         return jsonError(c, 400, "Неверный формат даты", err)
     }
-    // возраст >= 16
     age := time.Since(birthDate).Hours() / 24 / 365
     if age < 16 {
         return jsonError(c, 400, "Клиент должен быть старше 16 лет", nil)

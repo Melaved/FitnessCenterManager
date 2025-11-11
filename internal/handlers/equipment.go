@@ -60,7 +60,6 @@ func normEqStatus(s string) string {
 }
 
 func normRepairStatus(s string) string {
-	// подстрой, если в БД другие значения
 	switch strings.TrimSpace(s) {
 	case "Открыта":
 		return "Открыта"

@@ -57,7 +57,6 @@ func GetSubscriptionsPage(c *fiber.Ctx) error {
 			log.Printf("❌ scan sub: %v", err)
 			continue
 		}
-		// 👇 ЭТОЙ СТРОКИ НЕ ХВАТАЛО
 		subs = append(subs, s)
 	}
 	if err = rows.Err(); err != nil {
@@ -185,7 +184,6 @@ func APIv1CreateSubscription(c *fiber.Ctx) error {
     return c.Status(fiber.StatusCreated).JSON(fiber.Map{"success": true, "id": id})
 }
 
-// ====== Create ======
 func CreateSubscription(c *fiber.Ctx) error {
 	type formT struct {
 		ClientID  int    `form:"client_id"`
@@ -217,7 +215,6 @@ func CreateSubscription(c *fiber.Ctx) error {
 
 	db := database.GetDB()
 
-	// цена
 	var price float64
     if f.Price != "" {
         p, err := strconv.ParseFloat(f.Price, 64)
@@ -253,7 +250,6 @@ func CreateSubscription(c *fiber.Ctx) error {
     return jsonOK(c, fiber.Map{"message": "Абонемент создан", "id": id})
 }
 
-// ====== Read one ======
 func GetSubscriptionByID(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
     if err != nil || id <= 0 {

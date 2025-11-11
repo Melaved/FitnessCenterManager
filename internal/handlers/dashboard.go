@@ -24,7 +24,6 @@ func Dashboard(c *fiber.Ctx) error {
     _ = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM "Абонемент" WHERE "Статус"='Активен'`).Scan(&s.Subscriptions)
     _ = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM "Групповая_тренировка" WHERE "Время_начала">NOW()`).Scan(&s.Trainings)
 
-	// Zones stats
 	type ZonesStats struct {
 		Active        int
 		Repair        int
@@ -35,7 +34,6 @@ func Dashboard(c *fiber.Ctx) error {
     _ = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM "Зона" WHERE "Статус"='На ремонте'`).Scan(&z.Repair)
     _ = db.QueryRowContext(ctx, `SELECT COALESCE(SUM("Вместимость"),0) FROM "Зона"`).Scan(&z.TotalCapacity)
 
-	// Equipment stats
 	type EquipmentStats struct {
 		Total   int
 		Working int
