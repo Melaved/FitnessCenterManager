@@ -1,6 +1,6 @@
 async function parseJsonOrThrow(response){
   const ct=(response.headers.get('content-type')||'').toLowerCase();
-  if(ct.includes('application/json')) return response.json();
+  if(ct.includes('application/json')||ct.includes('application/problem+json')) return response.json();
   const text=await response.text(); throw new Error(text.slice(0,300)||'Сервер вернул не-JSON');
 }
 

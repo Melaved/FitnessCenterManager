@@ -61,10 +61,11 @@ func (d DatabaseConfig) DSN() string {
 
 // ServerConfig — базовые настройки веб-сервера и путей.
 type ServerConfig struct {
-	Port         string `yaml:"port"`
-	TemplatePath string `yaml:"template_path"`
-	StaticPath   string `yaml:"static_path"`
-	UploadPath   string `yaml:"upload_path"`
+    Port         string `yaml:"port"`
+    TemplatePath string `yaml:"template_path"`
+    StaticPath   string `yaml:"static_path"`
+    UploadPath   string `yaml:"upload_path"`
+    ProblemBaseURL string `yaml:"problem_base_url"`
 }
 
 // LoadConfig загружает конфигурацию из config.yaml и опционально из config.secret.yaml.

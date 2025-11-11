@@ -1,16 +1,16 @@
 package handlers
 
 import (
-	"database/sql"
-	"fmt"
-	"html/template"
-	"log"
-	"strconv"
-	"time"
+    "database/sql"
+    "fmt"
+    "html/template"
+    "log"
+    "strconv"
+    "time"
 
-	"fitness-center-manager/internal/database"
-	"fitness-center-manager/internal/models"
-	"github.com/gofiber/fiber/v2"
+    "fitness-center-manager/internal/database"
+    "fitness-center-manager/internal/models"
+    "github.com/gofiber/fiber/v2"
 )
 
 func tplScript(src string) template.HTML { // маленький помощник для layout'а
@@ -72,6 +72,55 @@ func GetTrainersPage(c *fiber.Ctx) error {
 	})
 }
 
+// APIv1ListTrainers — JSON список тренеров
+func APIv1ListTrainers(c *fiber.Ctx) error {
+    db := database.GetDB()
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    rows, err := db.QueryContext(ctx, `
+        SELECT 
+            "id_тренера",
+            "ФИО",
+            "Номер_телефона",
+            "Специализация",
+            "Дата_найма",
+            "Стаж_работы"
+        FROM "Тренер"
+        ORDER BY "id_тренера" DESC
+    `)
+    if err != nil {
+        return jsonError(c, 500, "Ошибка загрузки тренеров", err)
+    }
+    defer rows.Close()
+    type dto struct {
+        ID             int    `json:"id"`
+        FIO            string `json:"fio"`
+        Phone          string `json:"phone"`
+        Specialization string `json:"specialization"`
+        HireDate       string `json:"hire_date"`
+        Experience     int    `json:"experience"`
+    }
+    var list []dto
+    for rows.Next() {
+        var t models.Trainer
+        if err := rows.Scan(&t.ID, &t.FIO, &t.Phone, &t.Specialization, &t.HireDate, &t.Experience); err != nil {
+            return jsonError(c, 500, "Ошибка чтения тренера", err)
+        }
+        list = append(list, dto{
+            ID: t.ID,
+            FIO: t.FIO,
+            Phone: t.Phone,
+            Specialization: t.Specialization,
+            HireDate: t.HireDate.Format("2006-01-02"),
+            Experience: t.Experience,
+        })
+    }
+    if err := rows.Err(); err != nil {
+        return jsonError(c, 500, "Ошибка курсора", err)
+    }
+    return jsonOK(c, fiber.Map{"trainers": list})
+}
+
 func CreateTrainer(c *fiber.Ctx) error {
 	type formT struct {
 		FIO            string `form:"fio"`
@@ -106,6 +155,42 @@ func CreateTrainer(c *fiber.Ctx) error {
         return jsonError(c, 500, "Ошибка сохранения тренера", err)
     }
     return jsonOK(c, fiber.Map{"message": "Тренер добавлен", "id": id})
+}
+
+// APIv1CreateTrainer — 201 + Location
+func APIv1CreateTrainer(c *fiber.Ctx) error {
+    type formT struct {
+        FIO            string `form:"fio"`
+        Phone          string `form:"phone"`
+        Specialization string `form:"specialization"`
+        HireDate       string `form:"hire_date"`
+        Experience     int    `form:"experience"`
+    }
+    var f formT
+    if err := c.BodyParser(&f); err != nil {
+        return jsonError(c, 400, "Неверные данные формы", err)
+    }
+    if f.FIO == "" || f.Phone == "" || f.HireDate == "" {
+        return jsonError(c, 400, "ФИО, телефон и дата найма обязательны", nil)
+    }
+    hire, err := time.Parse("2006-01-02", f.HireDate)
+    if err != nil {
+        return jsonError(c, 400, "Неверная дата найма", err)
+    }
+    db := database.GetDB()
+    var id int
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    err = db.QueryRowContext(ctx, `
+        INSERT INTO "Тренер" ("ФИО","Номер_телефона","Специализация","Дата_найма","Стаж_работы")
+        VALUES ($1,$2,$3,$4,$5)
+        RETURNING "id_тренера"
+    `, f.FIO, f.Phone, f.Specialization, hire, f.Experience).Scan(&id)
+    if err != nil {
+        return jsonError(c, 500, "Ошибка сохранения тренера", err)
+    }
+    c.Set("Location", "/api/v1/trainers/"+strconv.Itoa(id))
+    return c.Status(fiber.StatusCreated).JSON(fiber.Map{"success": true, "id": id})
 }
 
 func GetTrainerByID(c *fiber.Ctx) error {
@@ -151,9 +236,9 @@ func GetTrainerByID(c *fiber.Ctx) error {
 // ======================= UPDATE =======================
 func UpdateTrainer(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil || id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
-	}
+    if err != nil || id <= 0 {
+        return jsonError(c, 400, "Некорректный id", err)
+    }
 
 	type formT struct {
 		FIO            string `form:"fio"`

@@ -73,6 +73,118 @@ func GetSubscriptionsPage(c *fiber.Ctx) error {
     })
 }
 
+// APIv1ListSubscriptions — JSON список абонементов
+func APIv1ListSubscriptions(c *fiber.Ctx) error {
+    db := database.GetDB()
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    rows, err := db.QueryContext(ctx, `
+        SELECT s."id_абонемента",
+               s."id_клиента",
+               s."id_тарифа",
+               s."Дата_начала",
+               s."Дата_окончания",
+               s."Статус",
+               s."Цена",
+               c."ФИО"              AS client_name,
+               t."Название_тарифа"  AS tariff_name
+        FROM "Абонемент" s
+        JOIN "Клиент" c ON c."id_клиента" = s."id_клиента"
+        JOIN "Тариф"  t ON t."id_тарифа"  = s."id_тарифа"
+        ORDER BY s."id_абонемента" DESC
+    `)
+    if err != nil {
+        return jsonError(c, 500, "Ошибка загрузки абонементов", err)
+    }
+    defer rows.Close()
+    type dto struct {
+        ID         int     `json:"id"`
+        ClientID   int     `json:"client_id"`
+        TariffID   int     `json:"tariff_id"`
+        StartDate  string  `json:"start_date"`
+        EndDate    string  `json:"end_date"`
+        Status     string  `json:"status"`
+        Price      float64 `json:"price"`
+        ClientName string  `json:"client_name"`
+        TariffName string  `json:"tariff_name"`
+    }
+    var list []dto
+    for rows.Next() {
+        var s models.Subscription
+        if err := rows.Scan(&s.ID, &s.ClientID, &s.TariffID, &s.StartDate, &s.EndDate, &s.Status, &s.Price, &s.ClientName, &s.TariffName); err != nil {
+            return jsonError(c, 500, "Ошибка чтения абонемента", err)
+        }
+        list = append(list, dto{
+            ID: s.ID,
+            ClientID: s.ClientID,
+            TariffID: s.TariffID,
+            StartDate: s.StartDate.Format("2006-01-02"),
+            EndDate: s.EndDate.Format("2006-01-02"),
+            Status: s.Status,
+            Price: s.Price,
+            ClientName: s.ClientName,
+            TariffName: s.TariffName,
+        })
+    }
+    if err := rows.Err(); err != nil {
+        return jsonError(c, 500, "Ошибка курсора", err)
+    }
+    return jsonOK(c, fiber.Map{"subscriptions": list})
+}
+
+// APIv1CreateSubscription — 201 + Location (повторяет CreateSubscription)
+func APIv1CreateSubscription(c *fiber.Ctx) error {
+    type formT struct {
+        ClientID  int    `form:"client_id"`
+        TariffID  int    `form:"tariff_id"`
+        StartDate string `form:"start_date"`
+        EndDate   string `form:"end_date"`
+        Status    string `form:"status"`
+        Price     string `form:"price"`
+    }
+    var f formT
+    if err := c.BodyParser(&f); err != nil {
+        return jsonError(c, 400, "Неверные данные формы", err)
+    }
+    if f.ClientID <= 0 || f.TariffID <= 0 || f.StartDate == "" || f.EndDate == "" {
+        return jsonError(c, 400, "Заполните обязательные поля", nil)
+    }
+    start, err := time.Parse("2006-01-02", f.StartDate)
+    if err != nil { return jsonError(c, 400, "Неверная дата начала", err) }
+    end, err := time.Parse("2006-01-02", f.EndDate)
+    if err != nil { return jsonError(c, 400, "Неверная дата окончания", err) }
+    if end.Before(start) { return jsonError(c, 400, "Дата окончания раньше даты начала", nil) }
+
+    db := database.GetDB()
+    var price float64
+    if f.Price != "" {
+        p, err := strconv.ParseFloat(f.Price, 64)
+        if err != nil { return jsonError(c, 400, "Неверная цена", err) }
+        price = p
+    } else {
+        // взять стоимость из тарифа
+        ctxP, cancelP := withDBTimeout()
+        defer cancelP()
+        if err := db.QueryRowContext(ctxP, `SELECT "Стоимость" FROM "Тариф" WHERE "id_тарифа"=$1`, f.TariffID).Scan(&price); err != nil {
+            return jsonError(c, 400, "Не удалось получить стоимость тарифа", err)
+        }
+    }
+
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    var id int
+    err = db.QueryRowContext(ctx, `
+        INSERT INTO "Абонемент" ("id_клиента","id_тарифа","Дата_начала","Дата_окончания","Статус","Цена")
+        VALUES ($1,$2,$3,$4,$5,$6)
+        RETURNING "id_абонемента"
+    `, f.ClientID, f.TariffID, start, end, f.Status, price).Scan(&id)
+    if err != nil {
+        return jsonError(c, 500, "Ошибка создания абонемента", err)
+    }
+    c.Set("Location", "/api/v1/subscriptions/"+strconv.Itoa(id))
+    return c.Status(fiber.StatusCreated).JSON(fiber.Map{"success": true, "id": id})
+}
+
 // ====== Create ======
 func CreateSubscription(c *fiber.Ctx) error {
 	type formT struct {
@@ -83,25 +195,25 @@ func CreateSubscription(c *fiber.Ctx) error {
 		Status    string `form:"status"`
 		Price     string `form:"price"` // если пусто — возьмём из тарифа
 	}
-	var f formT
-	if err := c.BodyParser(&f); err != nil {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверные данные формы"})
-	}
-	if f.ClientID <= 0 || f.TariffID <= 0 || f.StartDate == "" || f.EndDate == "" {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Заполните обязательные поля"})
-	}
+    var f formT
+    if err := c.BodyParser(&f); err != nil {
+        return jsonError(c, 400, "Неверные данные формы", err)
+    }
+    if f.ClientID <= 0 || f.TariffID <= 0 || f.StartDate == "" || f.EndDate == "" {
+        return jsonError(c, 400, "Заполните обязательные поля", nil)
+    }
 
-	start, err := time.Parse("2006-01-02", f.StartDate)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверная дата начала"})
-	}
-	end, err := time.Parse("2006-01-02", f.EndDate)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверная дата окончания"})
-	}
-	if end.Before(start) {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Дата окончания раньше даты начала"})
-	}
+    start, err := time.Parse("2006-01-02", f.StartDate)
+    if err != nil {
+        return jsonError(c, 400, "Неверная дата начала", err)
+    }
+    end, err := time.Parse("2006-01-02", f.EndDate)
+    if err != nil {
+        return jsonError(c, 400, "Неверная дата окончания", err)
+    }
+    if end.Before(start) {
+        return jsonError(c, 400, "Дата окончания раньше даты начала", nil)
+    }
 
 	db := database.GetDB()
 
@@ -144,9 +256,9 @@ func CreateSubscription(c *fiber.Ctx) error {
 // ====== Read one ======
 func GetSubscriptionByID(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil || id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
-	}
+    if err != nil || id <= 0 {
+        return jsonError(c, 400, "Некорректный id", err)
+    }
 
 	db := database.GetDB()
 	var s struct {
@@ -196,9 +308,9 @@ func GetSubscriptionByID(c *fiber.Ctx) error {
 // ====== Update ======
 func UpdateSubscription(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil || id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
-	}
+    if err != nil || id <= 0 {
+        return jsonError(c, 400, "Некорректный id", err)
+    }
 
 	type formT struct {
 		ClientID  int    `form:"client_id"`
@@ -209,24 +321,24 @@ func UpdateSubscription(c *fiber.Ctx) error {
 		Price     string `form:"price"`
 	}
 	var f formT
-	if err := c.BodyParser(&f); err != nil {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверные данные формы"})
-	}
-	if f.ClientID <= 0 || f.TariffID <= 0 || f.StartDate == "" || f.EndDate == "" || f.Status == "" {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Заполните обязательные поля"})
-	}
+    if err := c.BodyParser(&f); err != nil {
+        return jsonError(c, 400, "Неверные данные формы", err)
+    }
+    if f.ClientID <= 0 || f.TariffID <= 0 || f.StartDate == "" || f.EndDate == "" || f.Status == "" {
+        return jsonError(c, 400, "Заполните обязательные поля", nil)
+    }
 
 	start, err := time.Parse("2006-01-02", f.StartDate)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверная дата начала"})
-	}
+    if err != nil {
+        return jsonError(c, 400, "Неверная дата начала", err)
+    }
 	end, err := time.Parse("2006-01-02", f.EndDate)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверная дата окончания"})
-	}
-	if end.Before(start) {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Дата окончания раньше даты начала"})
-	}
+    if err != nil {
+        return jsonError(c, 400, "Неверная дата окончания", err)
+    }
+    if end.Before(start) {
+        return jsonError(c, 400, "Дата окончания раньше даты начала", nil)
+    }
 
 	var price float64
     if f.Price != "" {
@@ -266,9 +378,9 @@ func UpdateSubscription(c *fiber.Ctx) error {
 // ====== Delete ======
 func DeleteSubscription(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil || id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
-	}
+    if err != nil || id <= 0 {
+        return jsonError(c, 400, "Некорректный id", err)
+    }
 
     db := database.GetDB()
     ctx, cancel := withDBTimeout()
@@ -339,4 +451,3 @@ func GetTariffsForSelect(c *fiber.Ctx) error {
 	}
     return jsonOK(c, fiber.Map{"tariffs": list})
 }
-

@@ -1,15 +1,15 @@
 package handlers
 
 import (
-	"fitness-center-manager/internal/database"
-	"fitness-center-manager/internal/models"
-	"html/template"
-	"log"
-	"strconv"
-	"strings"
-	"time"
+    "fitness-center-manager/internal/database"
+    "fitness-center-manager/internal/models"
+    "html/template"
+    "log"
+    "strconv"
+    "strings"
+    "time"
 
-	"github.com/gofiber/fiber/v2"
+    "github.com/gofiber/fiber/v2"
 )
 
 func GetClients(c *fiber.Ctx) error {
@@ -143,6 +143,144 @@ func GetClients(c *fiber.Ctx) error {
     })
 }
 
+// APIv1ListClients — JSON-список клиентов с фильтрами/пагинацией
+func APIv1ListClients(c *fiber.Ctx) error {
+    db := database.GetDB()
+
+    q := strings.TrimSpace(c.Query("q"))
+    onlyWithMed := c.Query("medical") == "1"
+    recent30 := c.Query("recent") == "1"
+    page, _ := strconv.Atoi(c.Query("page"))
+    size, _ := strconv.Atoi(c.Query("size"))
+    if page <= 0 { page = 1 }
+    if size <= 0 || size > 100 { size = 20 }
+
+    where := []string{}
+    args := []any{}
+    paramCount := 0
+    nextPH := func() string {
+        paramCount++
+        return "$" + strconv.Itoa(paramCount)
+    }
+    if q != "" {
+        like := "%" + q + "%"
+        where = append(where, `(
+            v."ФИО" ILIKE `+nextPH()+` OR
+            v."Номер_телефона" ILIKE `+nextPH()+` OR
+            CAST(v."id_клиента" AS TEXT) ILIKE `+nextPH()+`
+        )`)
+        args = append(args, like, like, like)
+    }
+    if onlyWithMed {
+        where = append(where, `COALESCE(NULLIF(c."Медицинские_данные", ''), NULL) IS NOT NULL`)
+    }
+    if recent30 {
+        where = append(where, `c."Дата_регистрации" >= NOW()::date - INTERVAL '30 days'`)
+    }
+
+    baseSelect := `
+        SELECT
+            v."id_клиента",
+            v."ФИО",
+            v."Номер_телефона",
+            c."Дата_рождения",
+            c."Дата_регистрации",
+            c."Медицинские_данные",
+            v.age,
+            COALESCE(v.subs_total, 0) AS subscriptions_count,
+            CASE WHEN v.subs_active > 0 THEN 'Активен' ELSE 'Неактивен' END AS active_status
+        FROM public.view_client_enriched v
+        JOIN public."Клиент" c USING ("id_клиента")
+    `
+    whereSQL := ""
+    if len(where) > 0 {
+        whereSQL = " WHERE " + strings.Join(where, " AND ")
+    }
+
+    // count
+    countSQL := "SELECT COUNT(*) FROM (" + baseSelect + whereSQL + ") t"
+    ctxCount, cancelCount := withDBTimeout()
+    var total int
+    if err := db.QueryRowContext(ctxCount, countSQL, args...).Scan(&total); err != nil {
+        cancelCount()
+        return jsonError(c, 500, "Ошибка подсчёта записей", err)
+    }
+    cancelCount()
+
+    // data
+    query := baseSelect + whereSQL + ` ORDER BY v."ФИО" LIMIT $` + strconv.Itoa(paramCount+1) + ` OFFSET $` + strconv.Itoa(paramCount+2)
+    args = append(args, size, (page-1)*size)
+
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    rows, err := db.QueryContext(ctx, query, args...)
+    if err != nil {
+        return jsonError(c, 500, "Ошибка получения клиентов", err)
+    }
+    defer rows.Close()
+
+    type clientDTO struct {
+        ID                  int    `json:"id"`
+        FIO                 string `json:"fio"`
+        Phone               string `json:"phone"`
+        BirthDate           string `json:"birth_date"`
+        RegisterDate        string `json:"register_date"`
+        MedicalData         string `json:"medical_data"`
+        Age                 int    `json:"age"`
+        SubscriptionsCount  int    `json:"subscriptions_count"`
+        ActiveStatus        string `json:"active_status"`
+    }
+    var list []clientDTO
+    for rows.Next() {
+        var cl models.ClientEnriched
+        if err := rows.Scan(
+            &cl.ID,
+            &cl.FIO,
+            &cl.Phone,
+            &cl.BirthDate,
+            &cl.RegisterDate,
+            &cl.MedicalData,
+            &cl.Age,
+            &cl.SubscriptionsCnt,
+            &cl.ActiveStatus,
+        ); err != nil {
+            return jsonError(c, 500, "Ошибка сканирования клиента", err)
+        }
+        list = append(list, clientDTO{
+            ID:                 cl.ID,
+            FIO:                cl.FIO,
+            Phone:              cl.Phone,
+            BirthDate:          cl.BirthDate.Format("2006-01-02"),
+            RegisterDate:       cl.RegisterDate.Format("2006-01-02"),
+            MedicalData:        cl.MedicalData.String,
+            Age:                cl.Age,
+            SubscriptionsCount: cl.SubscriptionsCnt,
+            ActiveStatus:       cl.ActiveStatus,
+        })
+    }
+    if err := rows.Err(); err != nil {
+        return jsonError(c, 500, "Ошибка при обработке результатов", err)
+    }
+
+    return jsonOK(c, fiber.Map{
+        "clients": list,
+        "pagination": fiber.Map{
+            "page": page,
+            "size": size,
+            "total": total,
+            "has_prev": page > 1,
+            "has_next": page*size < total,
+            "prev": page-1,
+            "next": page+1,
+        },
+        "filter": fiber.Map{
+            "q": q,
+            "medical": onlyWithMed,
+            "recent": recent30,
+        },
+    })
+}
+
 
 // CreateClient создает нового клиента
 func CreateClient(c *fiber.Ctx) error {
@@ -158,36 +296,24 @@ func CreateClient(c *fiber.Ctx) error {
     var form ClientForm
     if err := c.BodyParser(&form); err != nil {
         log.Printf("❌ Ошибка парсинга формы: %v", err)
-        return c.Status(400).JSON(fiber.Map{
-            "success": false,
-            "error":   "Неверные данные формы",
-        })
+        return jsonError(c, 400, "Неверные данные формы", err)
     }
     
     // Валидация данных
     if form.FIO == "" || form.Phone == "" || form.BirthDate == "" {
-        return c.Status(400).JSON(fiber.Map{
-            "success": false,
-            "error":   "Все обязательные поля должны быть заполнены",
-        })
+        return jsonError(c, 400, "Все обязательные поля должны быть заполнены", nil)
     }
     
     // Парсим дату рождения
     birthDate, err := time.Parse("2006-01-02", form.BirthDate)
     if err != nil {
-        return c.Status(400).JSON(fiber.Map{
-            "success": false,
-            "error":   "Неверный формат даты",
-        })
+        return jsonError(c, 400, "Неверный формат даты", err)
     }
     
     // Проверка возраста
     age := time.Since(birthDate).Hours() / 24 / 365
     if age < 16 {
-        return c.Status(400).JSON(fiber.Map{
-            "success": false,
-            "error":   "Клиент должен быть старше 16 лет",
-        })
+        return jsonError(c, 400, "Клиент должен быть старше 16 лет", nil)
     }
     
     db := database.GetDB()
@@ -277,25 +403,16 @@ func UpdateClient(c *fiber.Ctx) error {
     
     var form ClientForm
     if err := c.BodyParser(&form); err != nil {
-        return c.Status(400).JSON(fiber.Map{
-            "success": false,
-            "error":   "Неверные данные формы",
-        })
+        return jsonError(c, 400, "Неверные данные формы", err)
     }
     
     if form.FIO == "" || form.Phone == "" || form.BirthDate == "" {
-        return c.Status(400).JSON(fiber.Map{
-            "success": false,
-            "error":   "Все обязательные поля должны быть заполнены",
-        })
+        return jsonError(c, 400, "Все обязательные поля должны быть заполнены", nil)
     }
     
     birthDate, err := time.Parse("2006-01-02", form.BirthDate)
     if err != nil {
-        return c.Status(400).JSON(fiber.Map{
-            "success": false,
-            "error":   "Неверный формат даты",
-        })
+        return jsonError(c, 400, "Неверный формат даты", err)
     }
     
     db := database.GetDB()
@@ -314,10 +431,7 @@ func UpdateClient(c *fiber.Ctx) error {
     
     rowsAffected, _ := result.RowsAffected()
     if rowsAffected == 0 {
-        return c.Status(404).JSON(fiber.Map{
-            "success": false,
-            "error":   "Клиент не найден",
-        })
+        return jsonError(c, 404, "Клиент не найден", nil)
     }
     
     return c.JSON(fiber.Map{
@@ -331,10 +445,7 @@ func DeleteClient(c *fiber.Ctx) error{
 
     clientID, err := strconv.Atoi(id)
     if err != nil{
-        return c.Status(400).JSON(fiber.Map{
-            "success": false,
-            "error": "Неверный Id клиента",
-        })
+        return jsonError(c, 400, "Неверный Id клиента", err)
     }
 
     db := database.GetDB()
@@ -364,6 +475,51 @@ func DeleteClient(c *fiber.Ctx) error{
     }
 
     return jsonOK(c, fiber.Map{"message": "Клиент успешно удален"})
+}
+
+// APIv1CreateClient — создание клиента с 201/Location
+func APIv1CreateClient(c *fiber.Ctx) error {
+    type ClientForm struct {
+        FIO         string `form:"fio"`
+        Phone       string `form:"phone"`
+        BirthDate   string `form:"birth_date"`
+        MedicalData string `form:"medical_data"`
+    }
+    var form ClientForm
+    if err := c.BodyParser(&form); err != nil {
+        return jsonError(c, 400, "Неверные данные формы", err)
+    }
+    if form.FIO == "" || form.Phone == "" || form.BirthDate == "" {
+        return jsonError(c, 400, "Все обязательные поля должны быть заполнены", nil)
+    }
+    birthDate, err := time.Parse("2006-01-02", form.BirthDate)
+    if err != nil {
+        return jsonError(c, 400, "Неверный формат даты", err)
+    }
+    // возраст >= 16
+    age := time.Since(birthDate).Hours() / 24 / 365
+    if age < 16 {
+        return jsonError(c, 400, "Клиент должен быть старше 16 лет", nil)
+    }
+
+    db := database.GetDB()
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    var clientID int
+    if err := db.QueryRowContext(ctx, `
+        INSERT INTO "Клиент" ("ФИО", "Номер_телефона", "Дата_рождения", "Медицинские_данные")
+        VALUES ($1,$2,$3,$4)
+        RETURNING "id_клиента"
+    `, form.FIO, form.Phone, birthDate, form.MedicalData).Scan(&clientID); err != nil {
+        return jsonError(c, 500, "Ошибка сохранения в базу данных", err)
+    }
+
+    c.Set("Location", "/api/v1/clients/"+strconv.Itoa(clientID))
+    return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+        "success": true,
+        "message": "Клиент успешно создан",
+        "client_id": clientID,
+    })
 }
 
 func GetClientsForSelect(c *fiber.Ctx) error {

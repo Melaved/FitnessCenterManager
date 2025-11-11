@@ -267,10 +267,10 @@ func CreateEquipment(c *fiber.Ctx) error {
 	}
 	var f formT
 	if err := c.BodyParser(&f); err != nil {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Неверные данные формы"})
+        return jsonError(c, 400, "Неверные данные формы", err)
 	}
 	if f.ZoneID <= 0 || f.Name == "" {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Укажите зону и название"})
+        return jsonError(c, 400, "Укажите зону и название", nil)
 	}
 	if f.Status == "" {
 		f.Status = "Исправен"
@@ -463,7 +463,7 @@ func GetEquipmentPhoto(c *fiber.Ctx) error {
 func DeleteEquipmentPhoto(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil || id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
+        return jsonError(c, 400, "Некорректный id", err)
 	}
     db := database.GetDB()
     ctx, cancel := withDBTimeout()
@@ -485,7 +485,7 @@ func CreateRepairRequest(c *fiber.Ctx) error {
 	desc := c.FormValue("description")
 	priority := c.FormValue("priority")
 	if eqID <= 0 || strings.TrimSpace(desc) == "" {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Укажите оборудование и описание"})
+        return jsonError(c, 400, "Укажите оборудование и описание", nil)
 	}
 	if priority == "" {
 		priority = "Средний"
@@ -495,20 +495,20 @@ func CreateRepairRequest(c *fiber.Ctx) error {
 	var photo []byte
 	if fh, err := c.FormFile("photo"); err == nil && fh != nil && fh.Size > 0 {
 		if fh.Size > maxUpload {
-			return c.Status(413).JSON(fiber.Map{"success": false, "error": "Фото больше 5 МБ"})
+            return jsonError(c, fiber.StatusRequestEntityTooLarge, "Фото больше 5 МБ", nil)
 		}
 		f, err := fh.Open()
 		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"success": false, "error": "Не удалось открыть фото"})
+            return jsonError(c, fiber.StatusInternalServerError, "Не удалось открыть фото", err)
 		}
 		defer f.Close()
 		lr := &io.LimitedReader{R: f, N: maxUpload + 1}
 		buf, err := io.ReadAll(lr)
 		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"success": false, "error": "Ошибка чтения фото"})
+            return jsonError(c, fiber.StatusInternalServerError, "Ошибка чтения фото", err)
 		}
 		if int64(len(buf)) > maxUpload {
-			return c.Status(413).JSON(fiber.Map{"success": false, "error": "Фото превышает 5 МБ"})
+            return jsonError(c, fiber.StatusRequestEntityTooLarge, "Фото превышает 5 МБ", nil)
 		}
 		head := buf
 		if len(head) > 512 {
@@ -518,7 +518,7 @@ func CreateRepairRequest(c *fiber.Ctx) error {
 		switch ct {
 		case "image/jpeg", "image/png", "image/webp":
 		default:
-			return c.Status(400).JSON(fiber.Map{"success": false, "error": "Фото: только JPEG/PNG/WebP"})
+            return jsonError(c, fiber.StatusBadRequest, "Фото: только JPEG/PNG/WebP", nil)
 		}
 		photo = buf
 	}
@@ -546,7 +546,7 @@ func CreateRepairRequest(c *fiber.Ctx) error {
 func DeleteRepairRequest(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil || id <= 0 {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Некорректный id"})
+        return jsonError(c, 400, "Некорректный id", err)
 	}
     db := database.GetDB()
     ctx, cancel := withDBTimeout()
@@ -758,4 +758,95 @@ func GetRepairPhoto(c *fiber.Ctx) error {
 	c.Set("ETag", fmt.Sprintf(`W/"%x"`, sum[:16]))
 	c.Set("Cache-Control", "public, max-age=3600")
 	return c.Send(img)
+}
+
+// ---------------- API v1: Список оборудования (JSON) ----------------
+
+func APIv1ListEquipment(c *fiber.Ctx) error {
+    db := database.GetDB()
+
+    // простые фильтры (необязательные)
+    zoneID := strings.TrimSpace(c.Query("zone_id"))
+    status := strings.TrimSpace(c.Query("status"))
+    hasPhoto := c.Query("has_photo") // "1" или "0"
+
+    where := []string{}
+    args := []any{}
+    nextPH := func() string { return "$" + strconv.Itoa(len(args)+1) }
+
+    if zoneID != "" {
+        where = append(where, `e."id_зоны" = `+nextPH()+`::int`)
+        args = append(args, zoneID)
+    }
+    if status != "" {
+        where = append(where, `e."Статус" = `+nextPH())
+        args = append(args, status)
+    }
+    if hasPhoto == "1" {
+        where = append(where, `e."Фото" IS NOT NULL`)
+    } else if hasPhoto == "0" {
+        where = append(where, `e."Фото" IS NULL`)
+    }
+
+    query := `
+        SELECT e."id_оборудования",
+               e."id_зоны",
+               e."Название",
+               e."Дата_покупки",
+               e."Дата_последнего_ТО",
+               e."Статус",
+               (e."Фото" IS NOT NULL) AS has_photo,
+               z."Название" AS zone_name
+        FROM "Оборудование" e
+        JOIN "Зона" z ON z."id_зоны" = e."id_зоны"`
+    if len(where) > 0 {
+        query += " WHERE " + strings.Join(where, " AND ")
+    }
+    query += ` ORDER BY e."id_оборудования"`
+
+    ctx, cancel := withDBTimeout()
+    defer cancel()
+    rows, err := db.QueryContext(ctx, query, args...)
+    if err != nil {
+        return jsonError(c, 500, "Ошибка загрузки оборудования", err)
+    }
+    defer rows.Close()
+
+    type item struct {
+        ID              int    `json:"id"`
+        ZoneID          int    `json:"zone_id"`
+        Name            string `json:"name"`
+        PurchaseDate    string `json:"purchase_date"`
+        LastServiceDate string `json:"last_service_date"`
+        Status          string `json:"status"`
+        HasPhoto        bool   `json:"has_photo"`
+        ZoneName        string `json:"zone_name"`
+    }
+    var list []item
+    for rows.Next() {
+        var (
+            id, zoneIDv       int
+            name, statusV     string
+            zoneName          string
+            hasPhotoV         bool
+            purchase, lastTO  sql.NullTime
+        )
+        if err := rows.Scan(&id, &zoneIDv, &name, &purchase, &lastTO, &statusV, &hasPhotoV, &zoneName); err != nil {
+            return jsonError(c, 500, "Ошибка чтения оборудования", err)
+        }
+        list = append(list, item{
+            ID: id,
+            ZoneID: zoneIDv,
+            Name: name,
+            PurchaseDate: dateYMD(purchase),
+            LastServiceDate: dateYMD(lastTO),
+            Status: statusV,
+            HasPhoto: hasPhotoV,
+            ZoneName: zoneName,
+        })
+    }
+    if err := rows.Err(); err != nil {
+        return jsonError(c, 500, "Ошибка курсора", err)
+    }
+    return jsonOK(c, fiber.Map{"items": list})
 }

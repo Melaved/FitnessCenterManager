@@ -22,3 +22,5 @@ server:
   template_path: "./web/templates" # путь к HTML-шаблонам
   static_path: "./web/static"      # путь к статике (css/js)
   upload_path: "./web/uploads"     # путь для загрузок (изображения, фото и т.п.)
+  server.problem_base_url: "https://fitness-center-manager.dev/problem"
+  problem_base_url: ""

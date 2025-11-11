@@ -3,7 +3,7 @@ console.log('[trainings.js] loaded');
 // ---------- утилиты ----------
 async function parseJsonOrThrow(resp) {
   const ct = (resp.headers.get('content-type') || '').toLowerCase();
-  if (ct.includes('application/json')) return resp.json();
+  if (ct.includes('application/json') || ct.includes('application/problem+json')) return resp.json();
   throw new Error((await resp.text()) || 'Сервер вернул не-JSON');
 }
 async function fill(url, select, key) {
