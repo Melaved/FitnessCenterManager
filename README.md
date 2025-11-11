@@ -1,7 +1,7 @@
 [![ci](https://github.com/Melaved/FitnessCenterManager/actions/workflows/ci.yml/badge.svg)](https://github.com/Melaved/FitnessCenterManager/actions/workflows/ci.yml)
 # FitnessCenterManager
 
-Приложение для управления фитнес‑центром на Go (Fiber + PostgreSQL): клиенты, абонементы, зоны/тренеры, дашборд, загрузка фото зон. Проект ориентирован на локальный запуск для учебных/пилотных целей.
+CMS (Content Management System) для управления фитнес‑центром на Go (Fiber + PostgreSQL): клиенты, абонементы, зоны/тренеры, дашборд, загрузка фото зон. Проект ориентирован на локальный запуск для учебных/пилотных целей.
 
 ## Возможности
 - Дашборд со сводной статистикой
