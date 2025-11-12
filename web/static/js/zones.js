@@ -88,12 +88,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const resp = await fetch(`/api/zones/${id}`);
         const res = await parseJsonOrThrow(resp);
         if (!res.success) throw new Error(res.error || 'Не удалось получить зону');
-        const z = res.zone;
-        document.getElementById('editZoneId').value = z.ID || z.id || id;
-        document.getElementById('editName').value = z.Name || z.name || '';
-        document.getElementById('editDescription').value = z.Description || z.description || '';
-        document.getElementById('editCapacity').value = z.Capacity || z.capacity || 1;
-        document.getElementById('editStatus').value = z.Status || z.status || 'Доступна';
+      const z = res.zone || {};
+        const zid = z.id || z.ID || z['id_зоны'] || id;
+        const zname = z.name || z.Name || z['название'] || '';
+        const zdesc = z.description || z.Description || z['описание'] || '';
+        const zcap = z.capacity || z.Capacity || z['вместимость'] || 1;
+        const zstatus = z.status || z.Status || z['статус'] || 'Доступна';
+
+        document.getElementById('editZoneId').value = zid;
+        document.getElementById('editName').value = zname;
+        document.getElementById('editDescription').value = zdesc;
+        document.getElementById('editCapacity').value = zcap;
+        document.getElementById('editStatus').value = zstatus;
         new bootstrap.Modal(document.getElementById('editZoneModal')).show();
       } catch (e) { alert('❌ Ошибка: ' + e.message); }
     });

@@ -77,6 +77,7 @@ func setupRoutes(app *fiber.App) {
     // страницы
     app.Get("/", handlers.Dashboard)
     app.Get("/about", handlers.About)
+    app.Get("/tariffs", handlers.GetTariffsPage)
     // отчетность: запросы и операции
     app.Post("/about/query/clients-after-date", handlers.ReportClientsAfterDate)
     app.Post("/about/query/subscriptions-by-status", handlers.ReportSubscriptionsByStatus)
@@ -238,4 +239,16 @@ func setupRoutes(app *fiber.App) {
 	app.Put("/api/v1/repairs/:id", handlers.UpdateRepairRequest)
 	app.Delete("/api/v1/repairs/:id", handlers.DeleteRepairRequest)
 
+	// тарифы (CRUD + API)
+    app.Get("/api/tariffs/:id", handlers.GetTariffByID)
+    app.Post("/tariffs", handlers.CreateTariff)
+    app.Put("/tariffs/:id", handlers.UpdateTariff)
+    app.Delete("/tariffs/:id", handlers.DeleteTariff)
+    // API v1 — алиасы
+    app.Get("/api/v1/tariffs/:id", handlers.GetTariffByID)
+    app.Post("/api/v1/tariffs", handlers.CreateTariff)
+    app.Put("/api/v1/tariffs/:id", handlers.UpdateTariff)
+    app.Delete("/api/v1/tariffs/:id", handlers.DeleteTariff)
+
 }
+    
