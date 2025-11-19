@@ -100,19 +100,5 @@ func LoadConfig() *Config {
 		log.Println("⚠️  config.secret.yaml не найден — пароль БД не установлен (допустимо только в dev)")
 	}
 
-	// 3) базовая валидация и информативные логи
-	if cfg.Database.Host == "" || cfg.Database.Port == "" || cfg.Database.User == "" || cfg.Database.DBName == "" {
-		log.Fatal("Некорректный database-конфиг: host/port/user/dbname должны быть заданы в config.yaml")
-	}
-	if cfg.Server.Port == "" {
-		log.Fatal("Некорректный server-конфиг: server.port должен быть задан в config.yaml (например, :3000)")
-	}
-	if cfg.Database.Password == "" {
-		log.Println("⚠️  Пароль БД пуст — убедись, что это режим разработки и есть доступ без пароля")
-	}
-
-	log.Printf("✅ Конфигурация загружена: %s:%s/%s (sslmode=%s)",
-		cfg.Database.Host, cfg.Database.Port, cfg.Database.DBName, cfg.Database.SSLMode)
-
 	return cfg
 }

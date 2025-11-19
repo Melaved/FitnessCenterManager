@@ -99,7 +99,11 @@
   <div class="col-lg-6">
     <div class="card h-100">
       <div class="card-body">
-        <h5 class="card-title">4.2.2 Подзапросы</h5>
+        <h5 class="card-title">4.2.2 Подзапросы (коррелированные)</h5>
+        <p class="text-muted small mb-3">
+          Для каждой зоны в подзапросе считается количество оборудования — это пример коррелированного подзапроса,
+          который зависит от строки внешнего запроса.
+        </p>
         <form id="form-zones-min-equip">
           <div class="row g-2 align-items-end">
             <div class="col-7">
@@ -112,6 +116,30 @@
           </div>
         </form>
         <div class="mt-3" id="res-zones-min-equip"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">4.2.2 Подзапросы (некоррелированные)</h5>
+        <p class="text-muted small mb-3">
+          Независимый подзапрос вычисляет среднюю вместимость по всем зонам и не зависит от внешнего запроса.
+          Дальше выбираются все зоны, вместимость которых выше этого среднего.
+        </p>
+        <form id="form-zones-above-avg">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-8">
+              <label class="form-label">Подзапрос считает AVG()</label>
+              <input class="form-control" value="Средняя вычисляется автоматически" disabled />
+            </div>
+            <div class="col-md-4">
+              <button class="btn btn-outline-primary w-100" type="submit">Показать зоны</button>
+            </div>
+          </div>
+        </form>
+        <div class="mt-3" id="res-zones-above-avg"></div>
       </div>
     </div>
   </div>
@@ -316,6 +344,29 @@
         {key: 'название', title:'Название'},
         {key: 'количество_оборудования', title:'Оборудование'},
       ], data.rows||[]);
+    }catch(err){ showAlert(cId, 'Ошибка: '+(err?.message||err), 'danger'); }
+  });
+
+  // Зоны с вместимостью выше средней (некоррелированный подзапрос)
+  document.getElementById('form-zones-above-avg')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const cId = 'res-zones-above-avg'; showAlert(cId, 'Выполнение...', 'secondary');
+    try{
+      const data = await postForm('/about/query/zones-above-avg-capacity', e.target);
+      if(!data.success) return showAlert(cId, data.error||'Ошибка', 'danger');
+      renderTable(cId, [
+        {key: 'id_зоны', title:'ID'},
+        {key: 'название', title:'Название'},
+        {key: 'вместимость', title:'Вместимость'},
+      ], data.rows||[]);
+      const avg = Number(data.summary?.avg_capacity ?? 0);
+      const wrap = document.getElementById(cId);
+      if(wrap && Number.isFinite(avg)){
+        const avgEl = document.createElement('div');
+        avgEl.className = 'small text-muted mt-2';
+        avgEl.textContent = `Средняя вместимость по всем зонам: ${avg.toFixed(2)}`;
+        wrap.appendChild(avgEl);
+      }
     }catch(err){ showAlert(cId, 'Ошибка: '+(err?.message||err), 'danger'); }
   });
 

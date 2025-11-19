@@ -36,20 +36,6 @@ func Close() error {
 	return nil
 }
 
-// TestConnection выполняет простой SELECT 1 для быстрой проверки.
-func TestConnection() error {
-	db := GetDB()
-	var n int
-	if err := db.QueryRow("SELECT 1").Scan(&n); err != nil {
-		return err
-	}
-	if n != 1 {
-		return sql.ErrNoRows
-	}
-	log.Println("Тестовый запрос к БД выполнен успешно")
-	return nil
-}
-
 // initDB создаёт подключение к Postgres c учётом таймаутов/пула из конфига.
 func initDB() (*sql.DB, error) {
 	cfg := config.LoadConfig()

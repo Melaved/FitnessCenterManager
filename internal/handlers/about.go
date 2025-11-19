@@ -237,6 +237,63 @@ func ReportZonesWithMinEquipment(c *fiber.Ctx) error {
     return jsonOK(c, fiber.Map{"rows": out})
 }
 
+// POST /about/query/zones-above-avg-capacity
+// Некоррелированный подзапрос: зоны с вместимостью выше средней по клубу
+func ReportZonesAboveAvgCapacity(c *fiber.Ctx) error {
+	db := database.GetDB()
+	ctx, cancel := withDBTimeout()
+	defer cancel()
+
+	rows, err := db.QueryContext(ctx, `
+        WITH avg_capacity AS (
+            SELECT COALESCE(AVG("Вместимость")::float8, 0) AS avg_capacity
+            FROM "Зона"
+        )
+        SELECT z."id_зоны", z."Название", z."Вместимость", avg_capacity.avg_capacity
+        FROM "Зона" z
+        CROSS JOIN avg_capacity
+        WHERE z."Вместимость" > avg_capacity.avg_capacity
+        ORDER BY z."Вместимость" DESC, z."id_зоны" DESC
+    `)
+	if err != nil {
+		return jsonError(c, 500, "DB: ошибка выборки зон по вместимости", err)
+	}
+	defer rows.Close()
+
+	type rowT struct {
+		ID       int    `json:"id_зоны"`
+		Name     string `json:"название"`
+		Capacity int    `json:"вместимость"`
+	}
+	var out []rowT
+	var avgValue float64
+	var avgSet bool
+	for rows.Next() {
+		var r rowT
+		var avg float64
+		if err := rows.Scan(&r.ID, &r.Name, &r.Capacity, &avg); err != nil {
+			return jsonError(c, 500, "Ошибка чтения строки", err)
+		}
+		avgValue = avg
+		avgSet = true
+		out = append(out, r)
+	}
+	if err := rows.Err(); err != nil {
+		return jsonError(c, 500, "Ошибка курсора", err)
+	}
+	if !avgSet {
+		if err := db.QueryRowContext(ctx, `SELECT COALESCE(AVG("Вместимость")::float8, 0) FROM "Зона"`).Scan(&avgValue); err != nil {
+			return jsonError(c, 500, "DB: ошибка подсчёта средней вместимости", err)
+		}
+	}
+	return jsonOK(c, fiber.Map{
+		"rows": out,
+		"summary": fiber.Map{
+			"avg_capacity": avgValue,
+		},
+	})
+}
+
 // ======= Операторы изменения данных =======
 
 // POST /about/op/insert-zone
