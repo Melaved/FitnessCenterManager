@@ -1,6 +1,15 @@
 <h1 class="mt-4">🏋️ Панель управления фитнес-центром</h1>
 <p class="lead">Система управления клиентами, тренерами, зонами, тренировками и оборудованием</p>
 
+{{if .DashboardWarnings}}
+<div class="alert alert-warning" role="alert">
+  <h6 class="alert-heading mb-1">Предупреждения</h6>
+  <ul class="mb-0 ps-3">
+    {{range .DashboardWarnings}}<li>{{.}}</li>{{end}}
+  </ul>
+</div>
+{{end}}
+
 <!-- Быстрые действия -->
 <div class="row mb-4">
   <div class="col-12">
@@ -53,7 +62,7 @@
       <div class="card-body">
         <h5 class="card-title">📅 Тренировки</h5>
         <p class="card-text display-6 mb-0">{{.Stats.Trainings}}</p>
-        <small>Запланированные</small>
+        <small>Групповые: {{.Stats.GroupTrainings}} · Персональные: {{.Stats.PersonalTrainings}}</small>
       </div>
     </div>
   </div>
@@ -62,7 +71,7 @@
 <!-- Зоны + Оборудование -->
 <div class="row mt-4">
   <div class="col-md-6">
-    <div class="card">
+    <div class="card h-100">
       <div class="card-header"><h5 class="card-title mb-0">🏟️ Состояние зон</h5></div>
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-2">
@@ -82,7 +91,7 @@
   </div>
 
   <div class="col-md-6">
-    <div class="card">
+    <div class="card h-100">
       <div class="card-header"><h5 class="card-title mb-0">🛠️ Оборудование</h5></div>
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-2">
@@ -102,6 +111,80 @@
           <span class="badge bg-info">{{.EquipmentStats.NoPhoto}}</span>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Дополнительные списки -->
+<div class="row mt-4">
+  <div class="col-lg-6 mb-4">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">🆕 Последние клиенты</h5>
+        <a href="/clients" class="btn btn-sm btn-outline-primary">Все</a>
+      </div>
+      <ul class="list-group list-group-flush">
+        {{range .RecentClients}}
+        <li class="list-group-item d-flex justify-content-between align-items-start">
+          <div class="me-3">
+            <div class="fw-semibold">{{.FIO}}</div>
+            <small class="text-muted">ID #{{.ID}} · зарегистрирован {{.Registered}}</small>
+          </div>
+          <div class="text-end">
+            <div class="badge bg-light text-dark">{{.LastTariff}}</div>
+            <small class="d-block text-muted">{{.LastStatus}}</small>
+          </div>
+        </li>
+        {{else}}
+        <li class="list-group-item text-muted">Нет данных, добавьте клиентов.</li>
+        {{end}}
+      </ul>
+    </div>
+  </div>
+  <div class="col-lg-6 mb-4">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">⏳ Абонементы, заканчивающиеся скоро</h5>
+        <a href="/subscriptions" class="btn btn-sm btn-outline-warning">Все</a>
+      </div>
+      <ul class="list-group list-group-flush">
+        {{range .ExpiringSubscriptions}}
+        <li class="list-group-item d-flex justify-content-between align-items-start">
+          <div class="me-3">
+            <div class="fw-semibold">{{.Client}}</div>
+            <small class="text-muted">Тариф: {{.Tariff}}</small>
+          </div>
+          <div class="text-end">
+            <span class="badge bg-danger">до {{.EndsAt}}</span>
+            <small class="d-block text-muted">ID #{{.ID}}</small>
+          </div>
+        </li>
+        {{else}}
+        <li class="list-group-item text-muted">Нет активных абонементов с близким окончанием.</li>
+        {{end}}
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="row mt-2">
+  <div class="col-lg-6 mb-4">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">🔧 Оборудование на ремонте</h5>
+        <a href="/equipment" class="btn btn-sm btn-outline-secondary">К оборудованию</a>
+      </div>
+      <ul class="list-group list-group-flush">
+        {{range .EquipmentRepairs}}
+        <li class="list-group-item">
+          <div class="fw-semibold">{{.Name}}</div>
+          <small class="text-muted d-block">Зона: {{.Zone}}</small>
+          <small class="text-muted">Последнее обслуживание: {{.LastService}}</small>
+        </li>
+        {{else}}
+        <li class="list-group-item text-muted">Все оборудование в рабочем состоянии.</li>
+        {{end}}
+      </ul>
     </div>
   </div>
 </div>
