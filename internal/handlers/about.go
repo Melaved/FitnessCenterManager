@@ -1,6 +1,8 @@
 package handlers
 
 import (
+    "io"
+    "net/http"
     "strconv"
     "strings"
     "time"
@@ -22,6 +24,8 @@ var repAllowedZoneStatuses = map[string]bool{
     "На ремонте": true,
     "Закрыта":    true,
 }
+
+const reportMaxUpload = int64(5 * 1024 * 1024) // 5 MB
 
 // ======= Запросы выборки =======
 
@@ -296,7 +300,6 @@ func ReportZonesAboveAvgCapacity(c *fiber.Ctx) error {
 
 // ======= Операторы изменения данных =======
 
-// POST /about/op/insert-zone
 func ReportInsertZone(c *fiber.Ctx) error {
     type form struct{
         Name string `form:"name"`
@@ -326,7 +329,50 @@ func ReportInsertZone(c *fiber.Ctx) error {
     `, f.Name, f.Description, f.Capacity, f.Status).Scan(&zoneID); err != nil {
         return jsonError(c, 500, "DB: ошибка вставки", err)
     }
-    return jsonOK(c, fiber.Map{"message": "Зона добавлена", "zone_id": zoneID})
+
+    //сохранение фото сразу при создании
+    if mf, err := c.MultipartForm(); err == nil {
+        if files := mf.File["photo"]; len(files) > 0 && files[0] != nil {
+            fh := files[0]
+            if fh.Size <= 0 || fh.Size > reportMaxUpload {
+                return jsonError(c, fiber.StatusRequestEntityTooLarge, "Фото пустое или больше 5 МБ", nil)
+            }
+            file, err := fh.Open()
+            if err != nil {
+                return jsonError(c, fiber.StatusInternalServerError, "Не удалось открыть фото", err)
+            }
+            defer file.Close()
+
+            lr := &io.LimitedReader{R: file, N: reportMaxUpload + 1}
+            buf, err := io.ReadAll(lr)
+            if err != nil {
+                return jsonError(c, fiber.StatusInternalServerError, "Ошибка чтения фото", err)
+            }
+            if int64(len(buf)) > reportMaxUpload {
+                return jsonError(c, fiber.StatusRequestEntityTooLarge, "Фото превышает 5 МБ", nil)
+            }
+
+            head := buf
+            if len(head) > 512 {
+                head = head[:512]
+            }
+            mime := http.DetectContentType(head)
+            switch mime {
+            case "image/jpeg", "image/png", "image/webp":
+            default:
+                return jsonError(c, fiber.StatusBadRequest, "Разрешены JPEG/PNG/WebP", nil)
+            }
+
+            if _, err := db.ExecContext(ctx, `UPDATE "Зона" SET "Фото"=$2 WHERE "id_зоны"=$1`, zoneID, buf); err != nil {
+                return jsonError(c, 500, "DB: ошибка сохранения фото", err)
+            }
+        }
+    }
+
+    return jsonOK(c, fiber.Map{
+        "message": "Зона добавлена",
+        "zone_id": zoneID,
+    })
 }
 
 // POST /about/query/personal-finished
@@ -397,7 +443,6 @@ func ReportPersonalFinished(c *fiber.Ctx) error {
     })
 }
 
-// POST /about/op/update-zone-status
 func ReportUpdateZoneStatus(c *fiber.Ctx) error {
     name := strings.TrimSpace(c.FormValue("name"))
     status := strings.TrimSpace(c.FormValue("status"))
@@ -429,7 +474,6 @@ func ReportUpdateZoneStatus(c *fiber.Ctx) error {
     return jsonOK(c, fiber.Map{"message": fmt.Sprintf("Статус обновлён (ID: %d)", id)})
 }
 
-// POST /about/op/delete-zone
 func ReportDeleteZone(c *fiber.Ctx) error {
     name := strings.TrimSpace(c.FormValue("name"))
     if name == "" { return jsonError(c, 400, "Укажите название зоны", nil) }

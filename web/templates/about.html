@@ -1,7 +1,7 @@
 <h1>📈 Отчетность</h1>
 
 <div class="row g-4 mt-2">
-  <div class="col-lg-6">
+  <div class="col-12">
     <div class="card h-100">
       <div class="card-body">
         <h5 class="card-title">4.2.1 Выборки: с условиями</h5>
@@ -21,7 +21,7 @@
     </div>
   </div>
 
-  <div class="col-lg-6">
+  <div class="col-12">
     <div class="card h-100">
       <div class="card-body">
         <h5 class="card-title">4.2.1 Выборки: из нескольких таблиц</h5>
@@ -96,7 +96,7 @@
     </div>
   </div>
 
-  <div class="col-lg-6">
+  <div class="col-12">
     <div class="card h-100">
       <div class="card-body">
         <h5 class="card-title">4.2.2 Подзапросы (коррелированные)</h5>
@@ -120,7 +120,7 @@
     </div>
   </div>
 
-  <div class="col-lg-6">
+  <div class="col-12">
     <div class="card h-100">
       <div class="card-body">
         <h5 class="card-title">4.2.2 Подзапросы (некоррелированные)</h5>
@@ -144,15 +144,15 @@
     </div>
   </div>
 
-  <div class="col-lg-6">
+  <div class="col-12">
     <div class="card h-100">
       <div class="card-body">
         <h5 class="card-title">4.2.3 Операторы изменения данных</h5>
         <div class="mb-3">
           <h6>INSERT Зона</h6>
-          <form id="form-insert-zone" class="row g-2">
-            <div class="col-md-4"><input class="form-control" name="name" placeholder="Название" required/></div>
-            <div class="col-md-4"><input class="form-control" name="description" placeholder="Описание"/></div>
+          <form id="form-insert-zone" class="row g-2" enctype="multipart/form-data">
+            <div class="col-md-3"><input class="form-control" name="name" placeholder="Название" required/></div>
+            <div class="col-md-3"><input class="form-control" name="description" placeholder="Описание"/></div>
             <div class="col-md-2"><input class="form-control" type="number" min="1" name="capacity" placeholder="Вместимость" required/></div>
             <div class="col-md-2">
               <select class="form-select" name="status">
@@ -160,6 +160,10 @@
                 <option>На ремонте</option>
                 <option>Закрыта</option>
               </select>
+            </div>
+            <div class="col-md-2">
+              <input class="form-control" type="file" name="photo" accept="image/jpeg,image/png,image/webp" />
+              <div class="form-text">Фото, до 5 МБ (опционально)</div>
             </div>
             <div class="col-12"><button class="btn btn-success" type="submit">Добавить</button></div>
           </form>

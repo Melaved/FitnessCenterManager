@@ -178,6 +178,7 @@ func setupRoutes(app *fiber.App) {
 	app.Get("/zones/:id/photo", handlers.GetZonePhoto)
 	app.Post("/zones/:id/upload-photo", handlers.UploadZonePhoto)
 	app.Delete("/zones/:id/photo", handlers.ClearZonePhoto)
+	app.Put("/zones/:id", handlers.UpdateZone)
 	app.Delete("/zones/:id", handlers.DeleteZone)
 	app.Get("/api/zones/:id", handlers.GetZoneByID)
 

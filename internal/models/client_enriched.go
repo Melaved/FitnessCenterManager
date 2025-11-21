@@ -12,7 +12,7 @@ type ClientEnriched struct {
 	BirthDate        time.Time      `db:"Дата_рождения"`
 	RegisterDate     time.Time      `db:"Дата_регистрации"`
 	MedicalData      sql.NullString `db:"Медицинские_данные"`
-	Age              int            `db:"age"`                  // вычисляемая из view
-	SubscriptionsCnt int            `db:"subscriptions_count"`  // вычисляемая из view
-	ActiveStatus     string         `db:"active_status"`        // подстановочная из view
+	Age              int            `db:"age"`                 // вычисляемая из view
+	SubscriptionsCnt int            `db:"subscriptions_count"` // вычисляемая из view
+	ActiveStatus     string         `db:"active_status"`       // подстановочная из view
 }
